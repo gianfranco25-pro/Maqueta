@@ -49,7 +49,17 @@ export default function Sales() {
         <Link to="/ventas/nueva"><Button className="bg-foreground text-background hover:bg-foreground/90">Nueva venta</Button></Link>
       }/>
 
-      <Input placeholder="Buscar por código, vendedor o cliente" value={search} onChange={(e) => setSearch(e.target.value)} className="mb-4" />
+      <div className="space-y-3 mb-4">
+        <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
+          <TabsList className="w-full grid grid-cols-4 h-auto">
+            <TabsTrigger value="todas" className="text-xs">Todas <span className="ml-1 opacity-60">{counts.todas}</span></TabsTrigger>
+            <TabsTrigger value="pendiente_cobro" className="text-xs">Por cobrar <span className="ml-1 opacity-60">{counts.pendiente_cobro}</span></TabsTrigger>
+            <TabsTrigger value="confirmada" className="text-xs">Confirmadas <span className="ml-1 opacity-60">{counts.confirmada}</span></TabsTrigger>
+            <TabsTrigger value="anulada" className="text-xs">Anuladas <span className="ml-1 opacity-60">{counts.anulada}</span></TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <Input placeholder="Buscar por código, vendedor o cliente" value={search} onChange={(e) => setSearch(e.target.value)} />
+      </div>
 
       <div className="rounded-2xl bg-card border border-border/60 overflow-hidden">
         {filtered.length === 0 ? (
@@ -58,9 +68,12 @@ export default function Sales() {
           <ul className="divide-y divide-border/60">
             {filtered.map((s) => (
               <li key={s.id} className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-secondary/40 cursor-pointer" onClick={() => setOpen(s.id)}>
-                <div>
-                  <p className="font-mono text-xs text-muted-foreground">{s.code}</p>
-                  <p className="font-medium">{s.sellerName}</p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-mono text-xs text-muted-foreground">{s.code}</p>
+                    <StatusBadge kind={s.status} />
+                  </div>
+                  <p className="font-medium truncate">{s.sellerName}</p>
                   <p className="text-xs text-muted-foreground">{fmtDateTime(s.timestamp)} · {s.lines.length} ítems</p>
                 </div>
                 <div className="text-right">
