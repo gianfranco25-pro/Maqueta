@@ -9,6 +9,7 @@ export type StatusKind =
   | "trasladado"
   | "reservado"
   | "pendiente"
+  | "pendiente_cobro"
   | "aprobada"
   | "rechazada"
   | "confirmada"
@@ -28,6 +29,7 @@ const styles: Record<StatusKind, string> = {
   trasladado: "bg-blue-100 text-blue-800 border-blue-300",
   reservado: "bg-amber-100 text-amber-800 border-amber-300",
   pendiente: "bg-gold-soft text-gold border-gold/30",
+  pendiente_cobro: "bg-gold-soft text-gold border-gold/30",
   aprobada: "bg-success-soft text-success border-success/30",
   rechazada: "bg-critical-soft text-critical border-critical/30",
   confirmada: "bg-success-soft text-success border-success/30",
@@ -48,6 +50,7 @@ const labels: Partial<Record<StatusKind, string>> = {
   trasladado: "Trasladado",
   reservado: "Reservado",
   pendiente: "Pendiente",
+  pendiente_cobro: "Por cobrar",
   aprobada: "Aprobada",
   rechazada: "Rechazada",
   confirmada: "Confirmada",
