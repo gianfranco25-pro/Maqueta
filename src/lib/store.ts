@@ -85,7 +85,7 @@ type Actions = {
   updateSettings: (patch: Partial<AppSettings>) => void;
 
   // Sales
-  createDraftSale: (sale: Omit<Sale, "id" | "code" | "timestamp" | "status" | "payments" | "totalSurcharge" | "total">) => Sale;
+  createDraftSale: (sale: Omit<Sale, "id" | "code" | "timestamp" | "status">) => Sale;
   confirmSalePayment: (saleId: string, payments: import("./types").PaymentSplit[], totalSurcharge: number, total: number, cashierId: string, cashierName: string) => Sale | undefined;
   cancelDraftSale: (saleId: string, reason: string) => void;
   voidSale: (saleId: string, reason: string, byUserId: string, byUserName: string) => void;
