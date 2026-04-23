@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/AppShell";
 import { useAppStore, useCurrentUser } from "@/lib/store";
+import { useCan } from "@/components/Can";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -19,13 +20,23 @@ import { toast } from "sonner";
 type Filter = "todas" | "pendiente_cobro" | "confirmada" | "anulada";
 
 export default function Sales() {
-  const sales = useAppStore((s) => s.sales);
+  const allSales = useAppStore((s) => s.sales);
   const voidSale = useAppStore((s) => s.voidSale);
   const user = useCurrentUser();
+  const canViewAll = useCan("sales.view.all");
+  const canCreate = useCan("sales.create");
+  const canCollect = useCan("sales.collect");
+  const canCancel = useCan("sales.cancel");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState("");
   const [filter, setFilter] = useState<Filter>("todas");
+
+  // Vendedor: solo ve sus propias ventas
+  const sales = useMemo(
+    () => (canViewAll ? allSales : allSales.filter((s) => s.sellerId === user?.id)),
+    [allSales, canViewAll, user?.id]
+  );
 
   const counts = useMemo(() => ({
     todas: sales.length,
@@ -41,12 +52,13 @@ export default function Sales() {
   });
 
   const sale = open ? sales.find((s) => s.id === open) : null;
-  const isAdmin = user?.role === "admin";
 
   return (
     <>
       <PageHeader title="Ventas" subtitle={`${sales.length} registradas`} action={
-        <Link to="/ventas/nueva"><Button className="bg-foreground text-background hover:bg-foreground/90">Nueva venta</Button></Link>
+        canCreate ? (
+          <Link to="/ventas/nueva"><Button className="bg-foreground text-background hover:bg-foreground/90">Nueva venta</Button></Link>
+        ) : null
       }/>
 
       <div className="space-y-3 mb-4">
