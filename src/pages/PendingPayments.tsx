@@ -16,12 +16,15 @@ import { CheckCircle2, CreditCard, ArrowLeftRight, Trash2, Receipt, ShieldAlert,
 import type { PaymentMethod, PaymentSplit } from "@/lib/types";
 import { toast } from "sonner";
 
+import { useCan } from "@/components/Can";
+
 export default function PendingPayments() {
   const sales = useAppStore((s) => s.sales);
   const settings = useAppStore((s) => s.settings);
   const confirmSalePayment = useAppStore((s) => s.confirmSalePayment);
   const cancelDraftSale = useAppStore((s) => s.cancelDraftSale);
   const user = useCurrentUser();
+  const canCancelDraft = useCan("sales.cancelDraft");
 
   const pending = useMemo(
     () => sales.filter((s) => s.status === "pendiente_cobro"),
