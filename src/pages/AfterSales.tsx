@@ -53,9 +53,9 @@ export default function AfterSales() {
       <PageHeader title="Postventa" subtitle="Cambios, errores y correcciones" />
 
       <Tabs defaultValue="cambio">
-        <TabsList className="grid grid-cols-3 max-w-md">
+        <TabsList className={`grid ${canWrong ? "grid-cols-3" : "grid-cols-2"} max-w-md`}>
           <TabsTrigger value="cambio">Cambio</TabsTrigger>
-          <TabsTrigger value="error">Por error</TabsTrigger>
+          {canWrong && <TabsTrigger value="error">Por error</TabsTrigger>}
           <TabsTrigger value="historial">Historial</TabsTrigger>
         </TabsList>
 
