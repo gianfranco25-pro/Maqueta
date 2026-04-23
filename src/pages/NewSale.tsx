@@ -12,8 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { QRScanner, isPairCode, isValidUnitCode } from "@/components/QRScanner";
-import { ScanLine, Trash2, Plus, ShieldAlert, CheckCircle2, CreditCard, Banknote, Smartphone, ArrowLeftRight } from "lucide-react";
-import type { PaymentMethod, PaymentSplit, SaleLine } from "@/lib/types";
+import { ScanLine, Trash2, Plus, ShieldAlert, Send } from "lucide-react";
+import type { SaleLine } from "@/lib/types";
 import { fmtMoney } from "@/lib/format";
 import { toast } from "sonner";
 
@@ -24,14 +24,13 @@ export default function NewSale() {
   const products = useAppStore((s) => s.products);
   const inventory = useAppStore((s) => s.inventory);
   const settings = useAppStore((s) => s.settings);
-  const registerSale = useAppStore((s) => s.registerSale);
+  const createDraftSale = useAppStore((s) => s.createDraftSale);
   const requestAuth = useAppStore((s) => s.requestAuthorization);
 
   const [lines, setLines] = useState<SaleLine[]>([]);
   const [customerPhone, setCustomerPhone] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [payments, setPayments] = useState<PaymentSplit[]>([{ method: "efectivo", amount: 0 }]);
 
   const addUnit = (code: string) => {
     code = code.trim().toUpperCase();
@@ -126,29 +125,12 @@ export default function NewSale() {
 
   const subtotal = lines.reduce((a, l) => a + l.finalPrice, 0);
   const discountTotal = lines.reduce((a, l) => a + Math.max(0, l.discount), 0);
-  const surchargeTotal = payments.reduce((a, p) => a + (p.surcharge || 0), 0);
-  const total = subtotal + surchargeTotal;
-  const paid = payments.reduce((a, p) => a + p.amount + (p.surcharge || 0), 0);
-  const remaining = total - paid;
 
   const exceedsDiscount = discountTotal > settings.maxDiscountSoles;
 
-  const updatePayment = (i: number, patch: Partial<PaymentSplit>) =>
-    setPayments(payments.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
-
-  const addPayment = () => setPayments([...payments, { method: "efectivo", amount: 0 }]);
-  const removePayment = (i: number) => setPayments(payments.filter((_, idx) => idx !== i));
-
-  const applyCardSurcharge = (i: number, apply: boolean) => {
-    const p = payments[i];
-    const surcharge = apply ? +(p.amount * (settings.cardSurchargePct / 100)).toFixed(2) : 0;
-    updatePayment(i, { surcharge });
-  };
-
-  const confirm = () => {
+  const sendToCashier = () => {
     if (!user) return;
     if (lines.length === 0) return toast.error("Agrega al menos un producto");
-    if (remaining > 0.001) return toast.error(`Falta ${fmtMoney(remaining)} por cobrar`);
     if (exceedsDiscount) {
       requestAuth({
         type: "descuento_excedido",
@@ -160,18 +142,15 @@ export default function NewSale() {
       toast.error("Descuento excede límite. Solicitud enviada al administrador.");
       return;
     }
-    const sale = registerSale({
+    const sale = createDraftSale({
       sellerId: user.id,
       sellerName: user.name,
       locationId: user.locationId,
       customerPhone: customerPhone || undefined,
       lines,
       subtotal,
-      totalSurcharge: surchargeTotal,
-      total,
-      payments,
     });
-    toast.success(`Venta ${sale.code} confirmada`, { description: fmtMoney(sale.total) });
+    toast.success(`Venta ${sale.code} enviada a cobro`, { description: "El cajero la verá en 'Por cobrar'" });
     navigate("/ventas");
   };
 
