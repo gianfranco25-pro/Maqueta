@@ -76,9 +76,13 @@ export default function Sales() {
                   <p className="font-medium truncate">{s.sellerName}</p>
                   <p className="text-xs text-muted-foreground">{fmtDateTime(s.timestamp)} · {s.lines.length} ítems</p>
                 </div>
-                <div className="text-right">
-                  <p className="font-display font-bold text-lg">{fmtMoney(s.total)}</p>
-                  <StatusBadge kind={s.status} />
+                <div className="text-right shrink-0">
+                  <p className="font-display font-bold text-lg">{fmtMoney(s.status === "pendiente_cobro" ? s.subtotal : s.total)}</p>
+                  {s.status === "pendiente_cobro" && (
+                    <Link to="/ventas/por-cobrar" onClick={(e) => e.stopPropagation()}>
+                      <Button size="sm" variant="outline" className="text-xs h-7 mt-1">Cobrar</Button>
+                    </Link>
+                  )}
                 </div>
               </li>
             ))}
@@ -102,15 +106,20 @@ export default function Sales() {
                   </div>
                 ))}
               </div>
-              <div className="rounded-lg border p-3 space-y-1.5">
-                {sale.payments.map((p, i) => (
-                  <div key={i} className="flex justify-between text-xs">
-                    <span>{p.method}{p.surcharge ? ` (+${fmtMoney(p.surcharge)})` : ""}</span>
-                    <span>{fmtMoney(p.amount + (p.surcharge || 0))}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between font-bold pt-1 border-t"><span>Total</span><span>{fmtMoney(sale.total)}</span></div>
-              </div>
+              {sale.payments.length > 0 && (
+                <div className="rounded-lg border p-3 space-y-1.5">
+                  {sale.payments.map((p, i) => (
+                    <div key={i} className="flex justify-between text-xs">
+                      <span>{p.method}{p.surcharge ? ` (+${fmtMoney(p.surcharge)})` : ""}</span>
+                      <span>{fmtMoney(p.amount + (p.surcharge || 0))}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between font-bold pt-1 border-t"><span>Total</span><span>{fmtMoney(sale.total)}</span></div>
+                </div>
+              )}
+              {sale.status === "pendiente_cobro" && (
+                <p className="text-xs text-gold"><strong>Esta venta está esperando cobro.</strong> Ve a "Por cobrar" para registrar el pago.</p>
+              )}
               {sale.status === "anulada" && <p className="text-critical text-xs"><strong>Motivo anulación:</strong> {sale.voidReason}</p>}
               {isAdmin && sale.status === "confirmada" && (
                 <div className="space-y-2 pt-2 border-t">
