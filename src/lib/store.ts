@@ -473,7 +473,7 @@ export const useAppStore = create<State & Actions>()(
       },
     }),
     {
-      name: "kabutt-store-v1",
+      name: "kabutt-store-v2",
     }
   )
 );
