@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/AppShell";
 import { useAppStore, useCurrentUser } from "@/lib/store";
+import { useCan } from "@/components/Can";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +21,7 @@ export default function AfterSales() {
   const exchange = useAppStore((s) => s.registerExchange);
   const wrong = useAppStore((s) => s.registerWrongPurchase);
   const user = useCurrentUser();
+  const canWrong = useCan("aftersales.wrong");
 
   const [search, setSearch] = useState("");
   const [selectedSale, setSelectedSale] = useState<string>("");
@@ -53,9 +55,9 @@ export default function AfterSales() {
       <PageHeader title="Postventa" subtitle="Cambios, errores y correcciones" />
 
       <Tabs defaultValue="cambio">
-        <TabsList className="grid grid-cols-3 max-w-md">
+        <TabsList className={`grid ${canWrong ? "grid-cols-3" : "grid-cols-2"} max-w-md`}>
           <TabsTrigger value="cambio">Cambio</TabsTrigger>
-          <TabsTrigger value="error">Por error</TabsTrigger>
+          {canWrong && <TabsTrigger value="error">Por error</TabsTrigger>}
           <TabsTrigger value="historial">Historial</TabsTrigger>
         </TabsList>
 
@@ -94,25 +96,27 @@ export default function AfterSales() {
           </div>
         </TabsContent>
 
-        <TabsContent value="error" className="grid lg:grid-cols-2 gap-6 mt-4">
-          <div className="rounded-2xl bg-card border p-5 space-y-3">
-            <Input placeholder="Buscar venta" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <ul className="max-h-64 overflow-y-auto rounded-lg border divide-y">
-              {found.slice(0, 20).map((s) => (
-                <li key={s.id}>
-                  <button onClick={() => setSelectedSale(s.id)} className={`w-full text-left px-3 py-2 hover:bg-secondary text-sm ${selectedSale === s.id ? "bg-gold-soft" : ""}`}>
-                    <div className="flex justify-between"><span className="font-mono">{s.code}</span><span>{fmtMoney(s.total)}</span></div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="rounded-2xl bg-card border p-5 space-y-3">
-            <h3 className="font-display font-bold">Compra por error</h3>
-            <div><Label>Motivo</Label><Input value={reason} onChange={(e) => setReason(e.target.value)} /></div>
-            <Button onClick={submitWrong} className="w-full bg-foreground text-background hover:bg-foreground/90">Registrar</Button>
-          </div>
-        </TabsContent>
+        {canWrong && (
+          <TabsContent value="error" className="grid lg:grid-cols-2 gap-6 mt-4">
+            <div className="rounded-2xl bg-card border p-5 space-y-3">
+              <Input placeholder="Buscar venta" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <ul className="max-h-64 overflow-y-auto rounded-lg border divide-y">
+                {found.slice(0, 20).map((s) => (
+                  <li key={s.id}>
+                    <button onClick={() => setSelectedSale(s.id)} className={`w-full text-left px-3 py-2 hover:bg-secondary text-sm ${selectedSale === s.id ? "bg-gold-soft" : ""}`}>
+                      <div className="flex justify-between"><span className="font-mono">{s.code}</span><span>{fmtMoney(s.total)}</span></div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-2xl bg-card border p-5 space-y-3">
+              <h3 className="font-display font-bold">Compra por error</h3>
+              <div><Label>Motivo</Label><Input value={reason} onChange={(e) => setReason(e.target.value)} /></div>
+              <Button onClick={submitWrong} className="w-full bg-foreground text-background hover:bg-foreground/90">Registrar</Button>
+            </div>
+          </TabsContent>
+        )}
 
         <TabsContent value="historial" className="mt-4">
           <div className="rounded-2xl bg-card border overflow-hidden">

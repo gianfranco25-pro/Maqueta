@@ -16,12 +16,15 @@ import { CheckCircle2, CreditCard, ArrowLeftRight, Trash2, Receipt, ShieldAlert,
 import type { PaymentMethod, PaymentSplit } from "@/lib/types";
 import { toast } from "sonner";
 
+import { useCan } from "@/components/Can";
+
 export default function PendingPayments() {
   const sales = useAppStore((s) => s.sales);
   const settings = useAppStore((s) => s.settings);
   const confirmSalePayment = useAppStore((s) => s.confirmSalePayment);
   const cancelDraftSale = useAppStore((s) => s.cancelDraftSale);
   const user = useCurrentUser();
+  const canCancelDraft = useCan("sales.cancelDraft");
 
   const pending = useMemo(
     () => sales.filter((s) => s.status === "pendiente_cobro"),
@@ -222,14 +225,16 @@ export default function PendingPayments() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setCancelOpen(true)}
-                  className="border-critical/40 text-critical hover:bg-critical-soft"
-                >
-                  <XCircle className="size-4 mr-1" /> Anular
-                </Button>
+              <div className={`grid ${canCancelDraft ? "grid-cols-2" : "grid-cols-1"} gap-2`}>
+                {canCancelDraft && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setCancelOpen(true)}
+                    className="border-critical/40 text-critical hover:bg-critical-soft"
+                  >
+                    <XCircle className="size-4 mr-1" /> Anular
+                  </Button>
+                )}
                 <Button
                   onClick={confirm}
                   disabled={Math.abs(remaining) > 0.001}

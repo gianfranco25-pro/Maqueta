@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/AppShell";
-import { useAppStore, useCurrentUser } from "@/lib/store";
+import { useAppStore } from "@/lib/store";
+import { useCan } from "@/components/Can";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +27,13 @@ export default function Inventory() {
   const inventory = useAppStore((s) => s.inventory);
   const locations = useAppStore((s) => s.locations);
   const settings = useAppStore((s) => s.settings);
+  const canScan = useCan("inventory.scan");
+  const canEntry = useCan("inventory.entry");
+  const canTransfer = useCan("inventory.transfer");
+  const canDelivery = useCan("inventory.delivery");
+  const canFault = useCan("inventory.fault");
+  const canSample = useCan("inventory.sample");
+  const showQuickTiles = canTransfer || canDelivery || canFault || canSample;
 
   const [search, setSearch] = useState("");
   const [locFilter, setLocFilter] = useState("todos");
@@ -64,35 +72,48 @@ export default function Inventory() {
         subtitle={`${inventory.length} unidades registradas`}
         action={
           <div className="flex gap-2">
-            <Link to="/escanear"><Button variant="outline"><ScanLine className="size-4 mr-1" /> Escanear</Button></Link>
-            <Link to="/inventario/ingreso">
-              <Button className="bg-foreground text-background hover:bg-foreground/90">
-                <ArrowDownToLine className="size-4 mr-1" /> Ingreso
-              </Button>
-            </Link>
+            {canScan && (
+              <Link to="/escanear"><Button variant="outline"><ScanLine className="size-4 mr-1" /> Escanear</Button></Link>
+            )}
+            {canEntry && (
+              <Link to="/inventario/ingreso">
+                <Button className="bg-foreground text-background hover:bg-foreground/90">
+                  <ArrowDownToLine className="size-4 mr-1" /> Ingreso
+                </Button>
+              </Link>
+            )}
           </div>
         }
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
-        <Link to="/inventario/traslados" className="quick-tile">
-          <Truck className="size-5 text-accent" />
-          <p className="font-semibold text-sm">Traslados</p>
-        </Link>
-        <Link to="/inventario/entregas" className="quick-tile">
-          <Package className="size-5 text-accent" />
-          <p className="font-semibold text-sm">Entregas</p>
-        </Link>
-        <Link to="/inventario/fallas" className="quick-tile">
-          <AlertTriangle className="size-5 text-critical" />
-          <p className="font-semibold text-sm">Fallas</p>
-        </Link>
-        <Link to="/inventario/muestras" className="quick-tile">
-          <Sparkles className="size-5 text-gold" />
-          <p className="font-semibold text-sm">Muestras</p>
-        </Link>
-      </div>
-
+      {showQuickTiles && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
+          {canTransfer && (
+            <Link to="/inventario/traslados" className="quick-tile">
+              <Truck className="size-5 text-accent" />
+              <p className="font-semibold text-sm">Traslados</p>
+            </Link>
+          )}
+          {canDelivery && (
+            <Link to="/inventario/entregas" className="quick-tile">
+              <Package className="size-5 text-accent" />
+              <p className="font-semibold text-sm">Entregas</p>
+            </Link>
+          )}
+          {canFault && (
+            <Link to="/inventario/fallas" className="quick-tile">
+              <AlertTriangle className="size-5 text-critical" />
+              <p className="font-semibold text-sm">Fallas</p>
+            </Link>
+          )}
+          {canSample && (
+            <Link to="/inventario/muestras" className="quick-tile">
+              <Sparkles className="size-5 text-gold" />
+              <p className="font-semibold text-sm">Muestras</p>
+            </Link>
+          )}
+        </div>
+      )}
       <div className="flex flex-wrap gap-2 mb-4">
         <Input placeholder="Buscar producto o código" value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1 min-w-48" />
         <Select value={locFilter} onValueChange={setLocFilter}>
