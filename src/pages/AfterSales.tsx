@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/AppShell";
 import { useAppStore, useCurrentUser } from "@/lib/store";
+import { useCan } from "@/components/Can";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +21,7 @@ export default function AfterSales() {
   const exchange = useAppStore((s) => s.registerExchange);
   const wrong = useAppStore((s) => s.registerWrongPurchase);
   const user = useCurrentUser();
+  const canWrong = useCan("aftersales.wrong");
 
   const [search, setSearch] = useState("");
   const [selectedSale, setSelectedSale] = useState<string>("");
