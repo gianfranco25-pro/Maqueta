@@ -275,9 +275,6 @@ export const useAppStore = create<State & Actions>()(
           id: `s-${Date.now()}`,
           code,
           status: "pendiente_cobro",
-          payments: [],
-          totalSurcharge: 0,
-          total: sale.subtotal,
           timestamp: new Date().toISOString(),
         };
         // Reservar items (no vendidos aún, pero bloqueados)
