@@ -65,6 +65,7 @@ export const sidebarByRole: Record<Role, NavItem[]> = {
     allNav.sales,
     allNav.scan,
     allNav.inventory,
+    allNav.catalog,
     allNav.aftersales,
     allNav.myIncome,
     allNav.attendance,
@@ -93,6 +94,7 @@ export const sidebarByRole: Record<Role, NavItem[]> = {
     allNav.authorizations,
     allNav.sales,
     allNav.inventory,
+    allNav.catalog,
   ],
 };
 
