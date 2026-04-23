@@ -8,7 +8,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@/components/ui/tabs";
-import { TrendingUp, Package, ClipboardCheck, AlertTriangle, RotateCcw, ShieldCheck, Wallet, Truck } from "lucide-react";
+import { TrendingUp, Package, ClipboardCheck, AlertTriangle, ShoppingCart } from "lucide-react";
 import { fmtDateTime } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useDashboardMetrics } from "@/lib/metrics";
@@ -30,7 +30,7 @@ export default function Reports() {
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
         <StatCard label="Hoy" value={fmtMoney(m.todayRevenue)} icon={TrendingUp} tone="gold" />
-        <StatCard label="Semana" value={fmtMoney(m.weekRevenue)} icon={ShoppingCartIcon} />
+        <StatCard label="Semana" value={fmtMoney(m.weekRevenue)} icon={ShoppingCart} />
         <StatCard label="Stock total" value={inventory.length} icon={Package} />
         <StatCard label="Asistencia hoy" value={m.attendanceToday} icon={ClipboardCheck} />
         <StatCard label="Fallas" value={m.faulty} icon={AlertTriangle} tone="critical" />
@@ -91,9 +91,6 @@ export default function Reports() {
   );
 }
 
-function ShoppingCartIcon(props: any) {
-  return <TrendingUp {...props} />;
-}
 
 function ListCard({ items, empty }: { items: { key: string; left: string; sub?: string; right: string; badge: any }[]; empty: string }) {
   return (
