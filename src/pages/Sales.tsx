@@ -90,7 +90,7 @@ export default function Sales() {
                 </div>
                 <div className="text-right shrink-0">
                   <p className="font-display font-bold text-lg">{fmtMoney(s.status === "pendiente_cobro" ? s.subtotal : s.total)}</p>
-                  {s.status === "pendiente_cobro" && (
+                  {s.status === "pendiente_cobro" && canCollect && (
                     <Link to="/ventas/por-cobrar" onClick={(e) => e.stopPropagation()}>
                       <Button size="sm" variant="outline" className="text-xs h-7 mt-1">Cobrar</Button>
                     </Link>
@@ -133,7 +133,7 @@ export default function Sales() {
                 <p className="text-xs text-gold"><strong>Esta venta está esperando cobro.</strong> Ve a "Por cobrar" para registrar el pago.</p>
               )}
               {sale.status === "anulada" && <p className="text-critical text-xs"><strong>Motivo anulación:</strong> {sale.voidReason}</p>}
-              {isAdmin && sale.status === "confirmada" && (
+              {canCancel && sale.status === "confirmada" && (
                 <div className="space-y-2 pt-2 border-t">
                   <p className="text-xs font-semibold uppercase text-critical">Anular venta (admin)</p>
                   <Input placeholder="Motivo" value={voidReason} onChange={(e) => setVoidReason(e.target.value)} />
