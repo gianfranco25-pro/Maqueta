@@ -60,8 +60,15 @@ export function QRScanner({
     return () => {
       mounted = false;
       const s = scannerRef.current;
+      scannerRef.current = null;
       if (s) {
-        s.stop().then(() => s.clear()).catch(() => {});
+        // Solo detener si está corriendo (state === 2)
+        const state = (s as any).getState?.();
+        if (state === 2) {
+          s.stop().then(() => s.clear()).catch(() => {});
+        } else {
+          try { s.clear(); } catch {}
+        }
       }
       setActive(false);
     };

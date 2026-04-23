@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/AppShell";
 import { useAppStore, useCurrentUser } from "@/lib/store";
@@ -175,11 +175,12 @@ export default function NewSale() {
     navigate("/ventas");
   };
 
-  // Prefill desde escáner
-  useState(() => {
+  // Prefill desde escáner (solo al montar)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
     const prefill = (loc.state as any)?.prefillUnit;
     if (prefill) addUnit(prefill);
-  });
+  }, []);
 
   return (
     <>
