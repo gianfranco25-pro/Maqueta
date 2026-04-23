@@ -225,14 +225,16 @@ export default function PendingPayments() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setCancelOpen(true)}
-                  className="border-critical/40 text-critical hover:bg-critical-soft"
-                >
-                  <XCircle className="size-4 mr-1" /> Anular
-                </Button>
+              <div className={`grid ${canCancelDraft ? "grid-cols-2" : "grid-cols-1"} gap-2`}>
+                {canCancelDraft && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setCancelOpen(true)}
+                    className="border-critical/40 text-critical hover:bg-critical-soft"
+                  >
+                    <XCircle className="size-4 mr-1" /> Anular
+                  </Button>
+                )}
                 <Button
                   onClick={confirm}
                   disabled={Math.abs(remaining) > 0.001}
