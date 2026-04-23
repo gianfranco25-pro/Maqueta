@@ -85,7 +85,9 @@ type Actions = {
   updateSettings: (patch: Partial<AppSettings>) => void;
 
   // Sales
-  registerSale: (sale: Omit<Sale, "id" | "code" | "timestamp" | "status">) => Sale;
+  createDraftSale: (sale: Omit<Sale, "id" | "code" | "timestamp" | "status" | "payments" | "totalSurcharge" | "total">) => Sale;
+  confirmSalePayment: (saleId: string, payments: import("./types").PaymentSplit[], totalSurcharge: number, total: number, cashierId: string, cashierName: string) => Sale | undefined;
+  cancelDraftSale: (saleId: string, reason: string) => void;
   voidSale: (saleId: string, reason: string, byUserId: string, byUserName: string) => void;
 
   // After-sales
@@ -264,7 +266,7 @@ export const useAppStore = create<State & Actions>()(
 
       updateSettings: (patch) => set({ settings: { ...get().settings, ...patch } }),
 
-      registerSale: (sale) => {
+      createDraftSale: (sale) => {
         const c = { ...get().counters };
         const code = `V-${pad(c.saleSeq, 4)}`;
         c.saleSeq += 1;
@@ -272,14 +274,39 @@ export const useAppStore = create<State & Actions>()(
           ...sale,
           id: `s-${Date.now()}`,
           code,
-          status: "confirmada",
+          status: "pendiente_cobro",
+          payments: [],
+          totalSurcharge: 0,
+          total: sale.subtotal,
           timestamp: new Date().toISOString(),
         };
-        // Marca items vendidos
+        // Reservar items (no vendidos aún, pero bloqueados)
+        const reservedUnitCodes = new Set<string>();
+        sale.lines.forEach((l) => {
+          if (l.isPair) {
+            reservedUnitCodes.add(`${l.unitCode}-D`);
+            reservedUnitCodes.add(`${l.unitCode}-I`);
+          } else {
+            reservedUnitCodes.add(l.unitCode);
+          }
+        });
+        const inv = get().inventory.map((i) =>
+          reservedUnitCodes.has(i.unitCode) ? { ...i, status: "reservado" as ItemStatus } : i
+        );
+        set({
+          sales: [fullSale, ...get().sales],
+          counters: c,
+          inventory: inv,
+        });
+        return fullSale;
+      },
+
+      confirmSalePayment: (saleId, payments, totalSurcharge, total, cashierId, cashierName) => {
+        const sale = get().sales.find((s) => s.id === saleId);
+        if (!sale || sale.status !== "pendiente_cobro") return;
         const soldUnitCodes = new Set<string>();
         sale.lines.forEach((l) => {
           if (l.isPair) {
-            // unitCode trae código de par "A00001": marcar D + I
             soldUnitCodes.add(`${l.unitCode}-D`);
             soldUnitCodes.add(`${l.unitCode}-I`);
           } else {
@@ -289,6 +316,17 @@ export const useAppStore = create<State & Actions>()(
         const inv = get().inventory.map((i) =>
           soldUnitCodes.has(i.unitCode) ? { ...i, status: "vendido" as ItemStatus } : i
         );
+        const updatedSale: Sale = {
+          ...sale,
+          payments,
+          totalSurcharge,
+          total,
+          status: "confirmada",
+          paidAt: new Date().toISOString(),
+          paidByCashierId: cashierId,
+          paidByCashierName: cashierName,
+          cashierId,
+        };
         const mv: Movement = {
           id: `mv-${Date.now()}`,
           type: "venta",
@@ -298,12 +336,30 @@ export const useAppStore = create<State & Actions>()(
           timestamp: new Date().toISOString(),
         };
         set({
-          sales: [fullSale, ...get().sales],
-          counters: c,
+          sales: get().sales.map((s) => (s.id === saleId ? updatedSale : s)),
           inventory: inv,
           movements: [mv, ...get().movements],
         });
-        return fullSale;
+        return updatedSale;
+      },
+
+      cancelDraftSale: (saleId, reason) => {
+        const sale = get().sales.find((s) => s.id === saleId);
+        if (!sale || sale.status !== "pendiente_cobro") return;
+        const release = new Set<string>();
+        sale.lines.forEach((l) => {
+          if (l.isPair) {
+            release.add(`${l.unitCode}-D`);
+            release.add(`${l.unitCode}-I`);
+          } else release.add(l.unitCode);
+        });
+        const inv = get().inventory.map((i) =>
+          release.has(i.unitCode) ? { ...i, status: "disponible" as ItemStatus } : i
+        );
+        const updated = get().sales.map((s) =>
+          s.id === saleId ? { ...s, status: "anulada" as const, voidReason: reason } : s
+        );
+        set({ sales: updated, inventory: inv });
       },
 
       voidSale: (saleId, reason, byUserId, byUserName) => {
