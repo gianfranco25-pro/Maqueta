@@ -85,7 +85,7 @@ type Actions = {
   updateSettings: (patch: Partial<AppSettings>) => void;
 
   // Sales
-  createDraftSale: (sale: Omit<Sale, "id" | "code" | "timestamp" | "status" | "payments" | "totalSurcharge" | "total">) => Sale;
+  createDraftSale: (sale: Omit<Sale, "id" | "code" | "timestamp" | "status">) => Sale;
   confirmSalePayment: (saleId: string, payments: import("./types").PaymentSplit[], totalSurcharge: number, total: number, cashierId: string, cashierName: string) => Sale | undefined;
   cancelDraftSale: (saleId: string, reason: string) => void;
   voidSale: (saleId: string, reason: string, byUserId: string, byUserName: string) => void;
@@ -275,9 +275,6 @@ export const useAppStore = create<State & Actions>()(
           id: `s-${Date.now()}`,
           code,
           status: "pendiente_cobro",
-          payments: [],
-          totalSurcharge: 0,
-          total: sale.subtotal,
           timestamp: new Date().toISOString(),
         };
         // Reservar items (no vendidos aún, pero bloqueados)

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { PageHeader } from "@/components/AppShell";
 import { useAppStore, useCurrentUser } from "@/lib/store";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CheckCircle2, CreditCard, ArrowLeftRight, Trash2, Receipt, ShieldAlert, XCircle } from "lucide-react";
+import { CheckCircle2, CreditCard, ArrowLeftRight, Trash2, Receipt, ShieldAlert, XCircle, Pencil } from "lucide-react";
 import type { PaymentMethod, PaymentSplit } from "@/lib/types";
 import { toast } from "sonner";
 
 import { useCan } from "@/components/Can";
+
+const METHOD_LABEL: Record<PaymentMethod, string> = {
+  efectivo: "💵 Efectivo",
+  transferencia: "🏦 Transferencia",
+  yape_plin: "📱 Yape/Plin",
+  tarjeta: "💳 Tarjeta",
+};
 
 export default function PendingPayments() {
   const sales = useAppStore((s) => s.sales);
@@ -32,18 +39,22 @@ export default function PendingPayments() {
   );
 
   const [openId, setOpenId] = useState<string | null>(null);
-  const [payments, setPayments] = useState<PaymentSplit[]>([{ method: "efectivo", amount: 0 }]);
+  const [editing, setEditing] = useState(false);
+  const [payments, setPayments] = useState<PaymentSplit[]>([]);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
 
   const sale = openId ? pending.find((s) => s.id === openId) : null;
 
-  const openSale = (id: string) => {
-    const s = pending.find((x) => x.id === id);
-    if (!s) return;
-    setOpenId(id);
-    setPayments([{ method: "efectivo", amount: s.subtotal }]);
-  };
+  // Cuando se abre una venta, cargar pagos propuestos por el vendedor
+  useEffect(() => {
+    if (sale) {
+      setPayments(sale.payments && sale.payments.length > 0 ? sale.payments : [{ method: "efectivo", amount: sale.subtotal }]);
+      setEditing(false);
+    }
+  }, [openId]);
+
+  const openSale = (id: string) => setOpenId(id);
 
   const surchargeTotal = payments.reduce((a, p) => a + (p.surcharge || 0), 0);
   const total = (sale?.subtotal || 0) + surchargeTotal;
@@ -81,6 +92,8 @@ export default function PendingPayments() {
     setOpenId(null);
   };
 
+  const proposedTotal = sale ? sale.subtotal + (sale.totalSurcharge || 0) : 0;
+
   return (
     <>
       <PageHeader
@@ -96,40 +109,44 @@ export default function PendingPayments() {
           </div>
         ) : (
           <ul className="divide-y divide-border/60">
-            {pending.map((s) => (
-              <li
-                key={s.id}
-                className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-secondary/40 cursor-pointer"
-                onClick={() => openSale(s.id)}
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-mono text-xs text-muted-foreground">{s.code}</p>
-                    <StatusBadge kind="pendiente_cobro" />
+            {pending.map((s) => {
+              const methods = (s.payments || []).map((p) => METHOD_LABEL[p.method].split(" ")[0]).join(" + ");
+              return (
+                <li
+                  key={s.id}
+                  className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-secondary/40 cursor-pointer"
+                  onClick={() => openSale(s.id)}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-mono text-xs text-muted-foreground">{s.code}</p>
+                      <StatusBadge kind="pendiente_cobro" />
+                      {methods && <span className="text-[10px] bg-secondary px-1.5 py-0.5 rounded">{methods}</span>}
+                    </div>
+                    <p className="font-medium truncate">{s.sellerName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {fmtDateTime(s.timestamp)} · {s.lines.length} ítem{s.lines.length === 1 ? "" : "s"}
+                      {s.customerPhone ? ` · ${s.customerPhone}` : ""}
+                    </p>
                   </div>
-                  <p className="font-medium truncate">{s.sellerName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {fmtDateTime(s.timestamp)} · {s.lines.length} ítem{s.lines.length === 1 ? "" : "s"}
-                    {s.customerPhone ? ` · ${s.customerPhone}` : ""}
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="font-display font-bold text-lg">{fmtMoney(s.subtotal)}</p>
-                  <Button size="sm" className="mt-1 bg-gradient-gold text-accent-foreground hover:opacity-90">
-                    Cobrar
-                  </Button>
-                </div>
-              </li>
-            ))}
+                  <div className="text-right shrink-0">
+                    <p className="font-display font-bold text-lg">{fmtMoney(s.total || s.subtotal)}</p>
+                    <Button size="sm" className="mt-1 bg-gradient-gold text-accent-foreground hover:opacity-90">
+                      Verificar
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
 
       <Dialog open={!!openId} onOpenChange={() => setOpenId(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Receipt className="size-5" /> Cobrar {sale?.code}
+              <Receipt className="size-5" /> Verificar y cobrar {sale?.code}
             </DialogTitle>
           </DialogHeader>
           {sale && (
@@ -154,54 +171,73 @@ export default function PendingPayments() {
               </div>
 
               <div>
-                <Label className="text-xs uppercase font-semibold">Métodos de pago</Label>
-                <div className="space-y-2 mt-2">
-                  {payments.map((p, i) => (
-                    <div key={i} className="rounded-xl border border-border p-2 space-y-1.5">
-                      <div className="flex gap-2 items-center">
-                        <select
-                          value={p.method}
-                          onChange={(e) => updatePayment(i, { method: e.target.value as PaymentMethod, surcharge: 0 })}
-                          className="flex-1 rounded-md border border-input bg-card text-sm h-9 px-2"
-                        >
-                          <option value="efectivo">💵 Efectivo</option>
-                          <option value="transferencia">🏦 Transferencia</option>
-                          <option value="yape_plin">📱 Yape/Plin</option>
-                          <option value="tarjeta">💳 Tarjeta</option>
-                        </select>
-                        <Input
-                          type="number"
-                          value={p.amount}
-                          onChange={(e) => updatePayment(i, { amount: +e.target.value })}
-                          className="w-28"
-                        />
-                        {payments.length > 1 && (
-                          <Button size="icon" variant="ghost" onClick={() => removePayment(i)}>
-                            <Trash2 className="size-4" />
-                          </Button>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-xs uppercase font-semibold">Pago indicado por el vendedor</Label>
+                  {!editing && (
+                    <Button size="sm" variant="ghost" onClick={() => setEditing(true)} className="h-7 text-xs">
+                      <Pencil className="size-3 mr-1" /> Ajustar
+                    </Button>
+                  )}
+                </div>
+
+                {!editing ? (
+                  <div className="rounded-xl border border-border divide-y">
+                    {payments.map((p, i) => (
+                      <div key={i} className="flex justify-between items-center p-2 text-sm">
+                        <span>{METHOD_LABEL[p.method]}</span>
+                        <span className="font-semibold">
+                          {fmtMoney(p.amount + (p.surcharge || 0))}
+                          {p.surcharge ? <span className="text-xs text-muted-foreground"> (+{fmtMoney(p.surcharge)})</span> : null}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {payments.map((p, i) => (
+                      <div key={i} className="rounded-xl border border-border p-2 space-y-1.5">
+                        <div className="flex gap-2 items-center">
+                          <select
+                            value={p.method}
+                            onChange={(e) => updatePayment(i, { method: e.target.value as PaymentMethod, surcharge: 0 })}
+                            className="flex-1 rounded-md border border-input bg-card text-sm h-9 px-2"
+                          >
+                            <option value="efectivo">💵 Efectivo</option>
+                            <option value="transferencia">🏦 Transferencia</option>
+                            <option value="yape_plin">📱 Yape/Plin</option>
+                            <option value="tarjeta">💳 Tarjeta</option>
+                          </select>
+                          <Input
+                            type="number"
+                            value={p.amount}
+                            onChange={(e) => updatePayment(i, { amount: +e.target.value })}
+                            className="w-28"
+                          />
+                          {payments.length > 1 && (
+                            <Button size="icon" variant="ghost" onClick={() => removePayment(i)}>
+                              <Trash2 className="size-4" />
+                            </Button>
+                          )}
+                        </div>
+                        {p.method === "tarjeta" && (
+                          <label className="flex items-center justify-between text-xs gap-2 bg-secondary/50 rounded-md px-2 py-1.5">
+                            <span className="flex items-center gap-1.5">
+                              <CreditCard className="size-3.5" />Recargo {settings.cardSurchargePct}%
+                            </span>
+                            <input
+                              type="checkbox"
+                              checked={(p.surcharge || 0) > 0}
+                              onChange={(e) => applyCardSurcharge(i, e.target.checked)}
+                            />
+                          </label>
                         )}
                       </div>
-                      {p.method === "tarjeta" && (
-                        <label className="flex items-center justify-between text-xs gap-2 bg-secondary/50 rounded-md px-2 py-1.5">
-                          <span className="flex items-center gap-1.5">
-                            <CreditCard className="size-3.5" />Recargo {settings.cardSurchargePct}%
-                          </span>
-                          <input
-                            type="checkbox"
-                            checked={(p.surcharge || 0) > 0}
-                            onChange={(e) => applyCardSurcharge(i, e.target.checked)}
-                          />
-                        </label>
-                      )}
-                      {p.method === "tarjeta" && (p.surcharge || 0) > 0 && (
-                        <p className="text-xs text-muted-foreground">+{fmtMoney(p.surcharge!)} de recargo</p>
-                      )}
-                    </div>
-                  ))}
-                  <Button variant="outline" size="sm" onClick={addPayment} className="w-full">
-                    <ArrowLeftRight className="size-4 mr-1" /> Pago mixto
-                  </Button>
-                </div>
+                    ))}
+                    <Button variant="outline" size="sm" onClick={addPayment} className="w-full">
+                      <ArrowLeftRight className="size-4 mr-1" /> Pago mixto
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="rounded-2xl bg-foreground text-background p-3 space-y-1.5">
@@ -220,7 +256,7 @@ export default function PendingPayments() {
                 {Math.abs(remaining) > 0.01 && (
                   <div className="rounded-lg bg-critical/20 text-background p-2 text-xs flex items-start gap-2">
                     <ShieldAlert className="size-3.5 shrink-0 mt-0.5" />
-                    <span>El monto cobrado no coincide con el total. Ajusta antes de confirmar.</span>
+                    <span>El monto cobrado no coincide. Ajusta antes de confirmar.</span>
                   </div>
                 )}
               </div>
