@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppShell } from "@/components/AppShell";
+import { RouteGuard } from "@/components/RouteGuard";
 
 import Dashboard from "./pages/Dashboard";
 import Users from "./pages/Users";
@@ -36,6 +37,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AppShell>
+          <RouteGuard>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/usuarios" element={<Users />} />
@@ -59,6 +61,7 @@ const App = () => (
             <Route path="/configuracion" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </RouteGuard>
         </AppShell>
       </BrowserRouter>
     </TooltipProvider>
