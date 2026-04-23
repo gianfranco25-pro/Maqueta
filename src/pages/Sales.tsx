@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/AppShell";
 import { useAppStore, useCurrentUser } from "@/lib/store";
 import { Input } from "@/components/ui/input";
@@ -11,9 +11,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Receipt } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+
+type Filter = "todas" | "pendiente_cobro" | "confirmada" | "anulada";
 
 export default function Sales() {
   const sales = useAppStore((s) => s.sales);
@@ -22,8 +25,17 @@ export default function Sales() {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState("");
+  const [filter, setFilter] = useState<Filter>("todas");
+
+  const counts = useMemo(() => ({
+    todas: sales.length,
+    pendiente_cobro: sales.filter((s) => s.status === "pendiente_cobro").length,
+    confirmada: sales.filter((s) => s.status === "confirmada").length,
+    anulada: sales.filter((s) => s.status === "anulada").length,
+  }), [sales]);
 
   const filtered = sales.filter((s) => {
+    if (filter !== "todas" && s.status !== filter) return false;
     if (!search) return true;
     return (s.code + s.sellerName + (s.customerPhone || "")).toLowerCase().includes(search.toLowerCase());
   });
