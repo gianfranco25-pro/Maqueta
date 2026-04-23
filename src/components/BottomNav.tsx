@@ -39,7 +39,9 @@ export function BottomNav() {
   );
 }
 
-function BottomItem({ item }: { item: ReturnType<typeof primaryActionByRole.admin> extends never ? never : any }) {
+import type { NavItem } from "@/lib/navigation";
+
+function BottomItem({ item }: { item: NavItem }) {
   const Icon = item.icon;
   return (
     <NavLink
