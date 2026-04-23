@@ -136,9 +136,12 @@ export type Sale = {
   total: number; // subtotal + recargo
   payments: PaymentSplit[];
   authorizedById?: string; // si requirió autorización por descuento
-  status: "confirmada" | "anulada" | "corregida";
+  status: "pendiente_cobro" | "confirmada" | "anulada" | "corregida";
   voidReason?: string;
-  timestamp: string;
+  timestamp: string; // creación
+  paidAt?: string; // confirmación de cobro
+  paidByCashierId?: string;
+  paidByCashierName?: string;
 };
 
 export type AfterSale = {

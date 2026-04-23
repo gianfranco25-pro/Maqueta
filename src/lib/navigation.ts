@@ -31,8 +31,9 @@ export const allNav: Record<string, NavItem> = {
   catalog: { to: "/catalogo", label: "Catálogo", icon: Tag, short: "Catálogo" },
   inventory: { to: "/inventario", label: "Inventario", icon: Package, short: "Stock" },
   scan: { to: "/escanear", label: "Escanear", icon: ScanLine, short: "Escanear" },
-  sales: { to: "/ventas", label: "Ventas", icon: ShoppingCart, short: "Vender" },
+  sales: { to: "/ventas", label: "Ventas", icon: ShoppingCart, short: "Ventas" },
   newSale: { to: "/ventas/nueva", label: "Nueva venta", icon: ShoppingCart, short: "Vender" },
+  pendingPayments: { to: "/ventas/por-cobrar", label: "Por cobrar", icon: Receipt, short: "Cobrar" },
   aftersales: { to: "/postventa", label: "Postventa", icon: RotateCcw, short: "Cambios" },
   reports: { to: "/reportes", label: "Reportes", icon: BarChart3 },
   commissions: { to: "/comisiones", label: "Comisiones", icon: Wallet, short: "Comisión" },
@@ -52,6 +53,7 @@ export const sidebarByRole: Record<Role, NavItem[]> = {
     allNav.inventory,
     allNav.scan,
     allNav.sales,
+    allNav.pendingPayments,
     allNav.aftersales,
     allNav.authorizations,
     allNav.commissions,
@@ -60,6 +62,7 @@ export const sidebarByRole: Record<Role, NavItem[]> = {
   vendedor: [
     allNav.dashboard,
     allNav.newSale,
+    allNav.sales,
     allNav.scan,
     allNav.inventory,
     allNav.aftersales,
@@ -68,6 +71,7 @@ export const sidebarByRole: Record<Role, NavItem[]> = {
   ],
   cajero: [
     allNav.dashboard,
+    allNav.pendingPayments,
     allNav.sales,
     allNav.aftersales,
     allNav.scan,
@@ -96,7 +100,7 @@ export const sidebarByRole: Record<Role, NavItem[]> = {
 export const primaryActionByRole: Record<Role, NavItem> = {
   admin: allNav.scan,
   vendedor: allNav.newSale,
-  cajero: allNav.scan,
+  cajero: allNav.pendingPayments,
   almacen: allNav.scan,
   administrativo: allNav.reports,
 };
@@ -104,8 +108,8 @@ export const primaryActionByRole: Record<Role, NavItem> = {
 // Bottom nav: 4 items + 1 acción central destacada
 export const bottomNavByRole: Record<Role, NavItem[]> = {
   admin: [allNav.dashboard, allNav.sales, allNav.inventory, allNav.reports],
-  vendedor: [allNav.dashboard, allNav.inventory, allNav.aftersales, allNav.myIncome],
-  cajero: [allNav.dashboard, allNav.sales, allNav.aftersales, allNav.attendance],
+  vendedor: [allNav.dashboard, allNav.sales, allNav.aftersales, allNav.myIncome],
+  cajero: [allNav.dashboard, allNav.pendingPayments, allNav.sales, allNav.aftersales],
   almacen: [allNav.dashboard, allNav.inventory, allNav.transfers, allNav.faults],
   administrativo: [allNav.dashboard, allNav.reports, allNav.commissions, allNav.authorizations],
 };

@@ -18,6 +18,7 @@ import InventorySamples from "./pages/InventorySamples";
 import ScanPage from "./pages/ScanPage";
 import Sales from "./pages/Sales";
 import NewSale from "./pages/NewSale";
+import PendingPayments from "./pages/PendingPayments";
 import AfterSales from "./pages/AfterSales";
 import Authorizations from "./pages/Authorizations";
 import Reports from "./pages/Reports";
@@ -49,6 +50,7 @@ const App = () => (
             <Route path="/escanear" element={<ScanPage />} />
             <Route path="/ventas" element={<Sales />} />
             <Route path="/ventas/nueva" element={<NewSale />} />
+            <Route path="/ventas/por-cobrar" element={<PendingPayments />} />
             <Route path="/postventa" element={<AfterSales />} />
             <Route path="/autorizaciones" element={<Authorizations />} />
             <Route path="/reportes" element={<Reports />} />
