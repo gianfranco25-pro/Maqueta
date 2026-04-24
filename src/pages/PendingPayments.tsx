@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/AppShell";
 import { useAppStore, useCurrentUser } from "@/lib/store";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CheckCircle2, CreditCard, ArrowLeftRight, Trash2, Receipt, ShieldAlert, XCircle } from "lucide-react";
-import type { PaymentMethod, PaymentSplit } from "@/lib/types";
+import { CheckCircle2, Receipt, XCircle } from "lucide-react";
+import type { PaymentMethod } from "@/lib/types";
 import { toast } from "sonner";
 
 import { useCan } from "@/components/Can";
@@ -27,7 +27,6 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
 
 export default function PendingPayments() {
   const sales = useAppStore((s) => s.sales);
-  const settings = useAppStore((s) => s.settings);
   const confirmSalePayment = useAppStore((s) => s.confirmSalePayment);
   const cancelDraftSale = useAppStore((s) => s.cancelDraftSale);
   const user = useCurrentUser();
@@ -39,41 +38,21 @@ export default function PendingPayments() {
   );
 
   const [openId, setOpenId] = useState<string | null>(null);
-  const [payments, setPayments] = useState<PaymentSplit[]>([]);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
 
   const sale = openId ? pending.find((s) => s.id === openId) : null;
 
-  // Cuando se abre una venta, preparar el cobro real que registrará el cajero
-  useEffect(() => {
-    if (sale) {
-      setPayments([{ method: "efectivo", amount: sale.subtotal }]);
-    }
-  }, [openId]);
-
   const openSale = (id: string) => setOpenId(id);
 
-  const surchargeTotal = payments.reduce((a, p) => a + (p.surcharge || 0), 0);
-  const total = (sale?.subtotal || 0) + surchargeTotal;
-  const paid = payments.reduce((a, p) => a + p.amount + (p.surcharge || 0), 0);
-  const remaining = total - paid;
-
-  const updatePayment = (i: number, patch: Partial<PaymentSplit>) =>
-    setPayments(payments.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
-  const addPayment = () => setPayments([...payments, { method: "efectivo", amount: 0 }]);
-  const removePayment = (i: number) => setPayments(payments.filter((_, idx) => idx !== i));
-  const applyCardSurcharge = (i: number, apply: boolean) => {
-    const p = payments[i];
-    const surcharge = apply ? +(p.amount * (settings.cardSurchargePct / 100)).toFixed(2) : 0;
-    updatePayment(i, { surcharge });
-  };
+  const paid = sale?.payments.reduce((a, p) => a + p.amount + (p.surcharge || 0), 0) || 0;
+  const remaining = sale ? sale.total - paid : 0;
 
   const confirm = () => {
     if (!sale || !user) return;
     if (remaining > 0.001) return toast.error(`Falta ${fmtMoney(remaining)} por cobrar`);
-    if (paid - total > 0.001) return toast.error(`Sobra ${fmtMoney(paid - total)} — ajusta el monto`);
-    const updated = confirmSalePayment(sale.id, payments, surchargeTotal, total, user.id, user.name);
+    if (paid - sale.total > 0.001) return toast.error(`Sobra ${fmtMoney(paid - sale.total)} — debe corregirlo el vendedor`);
+    const updated = confirmSalePayment(sale.id, sale.payments, sale.totalSurcharge, sale.total, user.id, user.name);
     if (updated) {
       toast.success(`Venta ${updated.code} cobrada`, { description: fmtMoney(updated.total) });
       setOpenId(null);
@@ -166,74 +145,34 @@ export default function PendingPayments() {
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <Label className="text-xs uppercase font-semibold">Cobro real registrado por cobrador</Label>
+                  <Label className="text-xs uppercase font-semibold">Pago registrado por vendedor</Label>
                 </div>
-
-                <div className="space-y-2">
-                    {payments.map((p, i) => (
-                      <div key={i} className="rounded-xl border border-border p-2 space-y-1.5">
-                        <div className="flex gap-2 items-center">
-                          <select
-                            value={p.method}
-                            onChange={(e) => updatePayment(i, { method: e.target.value as PaymentMethod, surcharge: 0 })}
-                            className="flex-1 rounded-md border border-input bg-card text-sm h-9 px-2"
-                          >
-                            <option value="efectivo">💵 Efectivo</option>
-                            <option value="transferencia">🏦 Transferencia</option>
-                            <option value="yape_plin">📱 Yape/Plin</option>
-                            <option value="tarjeta">💳 Tarjeta</option>
-                          </select>
-                          <Input
-                            type="number"
-                            value={p.amount}
-                            onChange={(e) => updatePayment(i, { amount: +e.target.value })}
-                            className="w-28"
-                          />
-                          {payments.length > 1 && (
-                            <Button size="icon" variant="ghost" onClick={() => removePayment(i)}>
-                              <Trash2 className="size-4" />
-                            </Button>
-                          )}
-                        </div>
-                        {p.method === "tarjeta" && (
-                          <label className="flex items-center justify-between text-xs gap-2 bg-secondary/50 rounded-md px-2 py-1.5">
-                            <span className="flex items-center gap-1.5">
-                              <CreditCard className="size-3.5" />Recargo {settings.cardSurchargePct}%
-                            </span>
-                            <input
-                              type="checkbox"
-                              checked={(p.surcharge || 0) > 0}
-                              onChange={(e) => applyCardSurcharge(i, e.target.checked)}
-                            />
-                          </label>
-                        )}
-                      </div>
-                    ))}
-                    <Button variant="outline" size="sm" onClick={addPayment} className="w-full">
-                      <ArrowLeftRight className="size-4 mr-1" /> Agregar pago mixto
-                    </Button>
-                  </div>
+                <div className="rounded-xl border border-border divide-y">
+                  {sale.payments.map((p, i) => (
+                    <div key={i} className="flex justify-between items-center p-2 text-sm">
+                      <span>{METHOD_LABEL[p.method]}</span>
+                      <span className="font-semibold">
+                        {fmtMoney(p.amount + (p.surcharge || 0))}
+                        {p.surcharge ? <span className="text-xs text-muted-foreground"> (+{fmtMoney(p.surcharge)})</span> : null}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="rounded-2xl bg-foreground text-background p-3 space-y-1.5">
                 <div className="flex justify-between text-xs"><span className="opacity-70">Subtotal</span><span>{fmtMoney(sale.subtotal)}</span></div>
-                {surchargeTotal > 0 && (
-                  <div className="flex justify-between text-xs"><span className="opacity-70">Recargo</span><span>+{fmtMoney(surchargeTotal)}</span></div>
+                {sale.totalSurcharge > 0 && (
+                  <div className="flex justify-between text-xs"><span className="opacity-70">Recargo</span><span>+{fmtMoney(sale.totalSurcharge)}</span></div>
                 )}
                 <div className="flex justify-between font-display font-extrabold text-xl pt-1 border-t border-background/20">
-                  <span>Total</span><span className="text-accent">{fmtMoney(total)}</span>
+                  <span>Total</span><span className="text-accent">{fmtMoney(sale.total)}</span>
                 </div>
                 <div className="flex justify-between text-xs"><span className="opacity-70">Pagado</span><span>{fmtMoney(paid)}</span></div>
                 <div className={`flex justify-between text-xs font-semibold ${Math.abs(remaining) < 0.01 ? "text-success" : "text-critical"}`}>
                   <span>{remaining < 0 ? "Sobra" : "Falta"}</span>
                   <span>{fmtMoney(Math.abs(remaining))}</span>
                 </div>
-                {Math.abs(remaining) > 0.01 && (
-                  <div className="rounded-lg bg-critical/20 text-background p-2 text-xs flex items-start gap-2">
-                    <ShieldAlert className="size-3.5 shrink-0 mt-0.5" />
-                    <span>El monto cobrado por el cobrador no coincide. Ajusta antes de confirmar.</span>
-                  </div>
-                )}
               </div>
 
               <div className={`grid ${canCancelDraft ? "grid-cols-2" : "grid-cols-1"} gap-2`}>
