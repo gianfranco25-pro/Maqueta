@@ -145,74 +145,34 @@ export default function PendingPayments() {
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <Label className="text-xs uppercase font-semibold">Cobro real registrado por cobrador</Label>
+                  <Label className="text-xs uppercase font-semibold">Pago registrado por vendedor</Label>
                 </div>
-
-                <div className="space-y-2">
-                    {payments.map((p, i) => (
-                      <div key={i} className="rounded-xl border border-border p-2 space-y-1.5">
-                        <div className="flex gap-2 items-center">
-                          <select
-                            value={p.method}
-                            onChange={(e) => updatePayment(i, { method: e.target.value as PaymentMethod, surcharge: 0 })}
-                            className="flex-1 rounded-md border border-input bg-card text-sm h-9 px-2"
-                          >
-                            <option value="efectivo">💵 Efectivo</option>
-                            <option value="transferencia">🏦 Transferencia</option>
-                            <option value="yape_plin">📱 Yape/Plin</option>
-                            <option value="tarjeta">💳 Tarjeta</option>
-                          </select>
-                          <Input
-                            type="number"
-                            value={p.amount}
-                            onChange={(e) => updatePayment(i, { amount: +e.target.value })}
-                            className="w-28"
-                          />
-                          {payments.length > 1 && (
-                            <Button size="icon" variant="ghost" onClick={() => removePayment(i)}>
-                              <Trash2 className="size-4" />
-                            </Button>
-                          )}
-                        </div>
-                        {p.method === "tarjeta" && (
-                          <label className="flex items-center justify-between text-xs gap-2 bg-secondary/50 rounded-md px-2 py-1.5">
-                            <span className="flex items-center gap-1.5">
-                              <CreditCard className="size-3.5" />Recargo {settings.cardSurchargePct}%
-                            </span>
-                            <input
-                              type="checkbox"
-                              checked={(p.surcharge || 0) > 0}
-                              onChange={(e) => applyCardSurcharge(i, e.target.checked)}
-                            />
-                          </label>
-                        )}
-                      </div>
-                    ))}
-                    <Button variant="outline" size="sm" onClick={addPayment} className="w-full">
-                      <ArrowLeftRight className="size-4 mr-1" /> Agregar pago mixto
-                    </Button>
-                  </div>
+                <div className="rounded-xl border border-border divide-y">
+                  {sale.payments.map((p, i) => (
+                    <div key={i} className="flex justify-between items-center p-2 text-sm">
+                      <span>{METHOD_LABEL[p.method]}</span>
+                      <span className="font-semibold">
+                        {fmtMoney(p.amount + (p.surcharge || 0))}
+                        {p.surcharge ? <span className="text-xs text-muted-foreground"> (+{fmtMoney(p.surcharge)})</span> : null}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="rounded-2xl bg-foreground text-background p-3 space-y-1.5">
                 <div className="flex justify-between text-xs"><span className="opacity-70">Subtotal</span><span>{fmtMoney(sale.subtotal)}</span></div>
-                {surchargeTotal > 0 && (
-                  <div className="flex justify-between text-xs"><span className="opacity-70">Recargo</span><span>+{fmtMoney(surchargeTotal)}</span></div>
+                {sale.totalSurcharge > 0 && (
+                  <div className="flex justify-between text-xs"><span className="opacity-70">Recargo</span><span>+{fmtMoney(sale.totalSurcharge)}</span></div>
                 )}
                 <div className="flex justify-between font-display font-extrabold text-xl pt-1 border-t border-background/20">
-                  <span>Total</span><span className="text-accent">{fmtMoney(total)}</span>
+                  <span>Total</span><span className="text-accent">{fmtMoney(sale.total)}</span>
                 </div>
                 <div className="flex justify-between text-xs"><span className="opacity-70">Pagado</span><span>{fmtMoney(paid)}</span></div>
                 <div className={`flex justify-between text-xs font-semibold ${Math.abs(remaining) < 0.01 ? "text-success" : "text-critical"}`}>
                   <span>{remaining < 0 ? "Sobra" : "Falta"}</span>
                   <span>{fmtMoney(Math.abs(remaining))}</span>
                 </div>
-                {Math.abs(remaining) > 0.01 && (
-                  <div className="rounded-lg bg-critical/20 text-background p-2 text-xs flex items-start gap-2">
-                    <ShieldAlert className="size-3.5 shrink-0 mt-0.5" />
-                    <span>El monto cobrado por el cobrador no coincide. Ajusta antes de confirmar.</span>
-                  </div>
-                )}
               </div>
 
               <div className={`grid ${canCancelDraft ? "grid-cols-2" : "grid-cols-1"} gap-2`}>
