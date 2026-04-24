@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/AppShell";
 import { useAppStore, useCurrentUser } from "@/lib/store";
 import { useCan } from "@/components/Can";
@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fmtDateTime, fmtMoney } from "@/lib/format";
-import { StatusBadge } from "@/components/StatusBadge";
 import { toast } from "sonner";
 import {
   Tabs,
@@ -17,6 +16,8 @@ import {
 
 export default function AfterSales() {
   const sales = useAppStore((s) => s.sales);
+  const products = useAppStore((s) => s.products);
+  const inventory = useAppStore((s) => s.inventory);
   const aftersales = useAppStore((s) => s.afterSales);
   const exchange = useAppStore((s) => s.registerExchange);
   const wrong = useAppStore((s) => s.registerWrongPurchase);
@@ -27,19 +28,61 @@ export default function AfterSales() {
   const [selectedSale, setSelectedSale] = useState<string>("");
   const [oldUnit, setOldUnit] = useState("");
   const [newUnit, setNewUnit] = useState("");
-  const [diff, setDiff] = useState(0);
   const [reason, setReason] = useState("");
 
-  const found = sales.filter((s) =>
+  const confirmedSales = sales.filter((s) => s.status === "confirmada");
+  const found = confirmedSales.filter((s) =>
     !search ? true : (s.code + (s.customerPhone || "") + s.sellerName).toLowerCase().includes(search.toLowerCase())
   );
+  const sale = confirmedSales.find((s) => s.id === selectedSale);
+  const oldLine = sale?.lines.find((l) => l.unitCode === oldUnit);
+
+  const availableOptions = useMemo(() => {
+    const groupedPairs = new Map<string, typeof inventory>();
+    inventory.forEach((item) => {
+      if (item.status !== "disponible") return;
+      if (!item.pairCode) return;
+      groupedPairs.set(item.pairCode, [...(groupedPairs.get(item.pairCode) || []), item]);
+    });
+
+    const pairs = Array.from(groupedPairs.entries())
+      .filter(([, items]) => items.length === 2 && items.every((i) => i.locationId === items[0].locationId))
+      .map(([pairCode, items]) => ({ code: pairCode, productId: items[0].productId }));
+
+    const accessories = inventory
+      .filter((item) => item.status === "disponible" && !item.pairCode)
+      .map((item) => ({ code: item.unitCode, productId: item.productId }));
+
+    return [...pairs, ...accessories]
+      .map((option) => {
+        const product = products.find((p) => p.id === option.productId);
+        return product ? { ...option, product } : null;
+      })
+      .filter((option): option is NonNullable<typeof option> => Boolean(option));
+  }, [inventory, products]);
+
+  const newOption = availableOptions.find((option) => option.code === newUnit);
+  const difference = oldLine && newOption ? Math.max(0, newOption.product.basePrice - oldLine.finalPrice) : 0;
+
+  const selectSale = (id: string) => {
+    setSelectedSale(id);
+    setOldUnit("");
+    setNewUnit("");
+  };
 
   const submitExchange = () => {
     if (!user) return;
-    if (!selectedSale || !oldUnit || !newUnit) return toast.error("Completa los códigos");
-    exchange(selectedSale, oldUnit.toUpperCase(), newUnit.toUpperCase(), diff, user.id, user.name, reason || "Cambio de producto");
-    toast.success("Cambio registrado");
-    setSelectedSale(""); setOldUnit(""); setNewUnit(""); setDiff(0); setReason("");
+    if (!selectedSale || !oldUnit || !newUnit) return toast.error("Selecciona la venta, el producto devuelto y el nuevo producto");
+    try {
+      exchange(selectedSale, oldUnit, newUnit, difference, user.id, user.name, reason || "Cambio de producto");
+      toast.success("Cambio registrado");
+      setSelectedSale("");
+      setOldUnit("");
+      setNewUnit("");
+      setReason("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo registrar el cambio");
+    }
   };
 
   const submitWrong = () => {
@@ -63,15 +106,15 @@ export default function AfterSales() {
 
         <TabsContent value="cambio" className="grid lg:grid-cols-2 gap-6 mt-4">
           <div className="rounded-2xl bg-card border p-5 space-y-3">
-            <Input placeholder="Buscar venta (código o cliente)" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input placeholder="Buscar venta confirmada" value={search} onChange={(e) => setSearch(e.target.value)} />
             <ul className="max-h-64 overflow-y-auto rounded-lg border divide-y">
               {found.slice(0, 20).map((s) => (
                 <li key={s.id}>
                   <button
-                    onClick={() => setSelectedSale(s.id)}
+                    onClick={() => selectSale(s.id)}
                     className={`w-full text-left px-3 py-2 hover:bg-secondary text-sm ${selectedSale === s.id ? "bg-gold-soft" : ""}`}
                   >
-                    <div className="flex justify-between">
+                    <div className="flex justify-between gap-3">
                       <span className="font-mono">{s.code}</span>
                       <span>{fmtMoney(s.total)}</span>
                     </div>
@@ -82,17 +125,61 @@ export default function AfterSales() {
             </ul>
           </div>
 
-          <div className="rounded-2xl bg-card border p-5 space-y-3">
-            <h3 className="font-display font-bold">Datos del cambio</h3>
-            <div><Label>Código del producto a devolver</Label><Input value={oldUnit} onChange={(e) => setOldUnit(e.target.value)} placeholder="A00001 o B00001" /></div>
-            <div><Label>Código del producto nuevo</Label><Input value={newUnit} onChange={(e) => setNewUnit(e.target.value)} placeholder="A00002 o B00002" /></div>
-            <div>
-              <Label>Diferencia (positiva si cliente paga más)</Label>
-              <Input type="number" value={diff} onChange={(e) => setDiff(+e.target.value)} />
-              <p className="text-xs text-muted-foreground mt-1">Si el nuevo cuesta menos, no se devuelve dinero.</p>
-            </div>
-            <div><Label>Motivo</Label><Input value={reason} onChange={(e) => setReason(e.target.value)} /></div>
-            <Button onClick={submitExchange} className="w-full bg-foreground text-background hover:bg-foreground/90">Registrar cambio</Button>
+          <div className="rounded-2xl bg-card border p-5 space-y-4">
+            <h3 className="font-display font-bold">Cambio guiado</h3>
+
+            {sale ? (
+              <div className="space-y-3">
+                <div className="rounded-lg border divide-y overflow-hidden">
+                  {sale.lines.map((line) => (
+                    <button
+                      key={line.unitCode}
+                      onClick={() => setOldUnit(line.unitCode)}
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-secondary ${oldUnit === line.unitCode ? "bg-gold-soft" : ""}`}
+                    >
+                      <div className="flex justify-between gap-3">
+                        <span className="font-medium">{line.productLabel}</span>
+                        <span>{fmtMoney(line.finalPrice)}</span>
+                      </div>
+                      <p className="font-mono text-xs text-muted-foreground">{line.unitCode}</p>
+                    </button>
+                  ))}
+                </div>
+
+                <div>
+                  <Label>Nuevo producto disponible</Label>
+                  <div className="max-h-56 overflow-y-auto rounded-lg border divide-y mt-1">
+                    {availableOptions.length === 0 ? (
+                      <p className="p-3 text-sm text-muted-foreground">Sin stock disponible para cambio</p>
+                    ) : availableOptions.map((option) => (
+                      <button
+                        key={option.code}
+                        onClick={() => setNewUnit(option.code)}
+                        className={`w-full px-3 py-2 text-left text-sm hover:bg-secondary ${newUnit === option.code ? "bg-gold-soft" : ""}`}
+                      >
+                        <div className="flex justify-between gap-3">
+                          <span className="font-medium">{option.product.brand} {option.product.model}</span>
+                          <span>{fmtMoney(option.product.basePrice)}</span>
+                        </div>
+                        <p className="font-mono text-xs text-muted-foreground">{option.code}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-lg bg-secondary p-3 text-sm">
+                  <div className="flex justify-between"><span>Vendido en</span><strong>{oldLine ? fmtMoney(oldLine.finalPrice) : "—"}</strong></div>
+                  <div className="flex justify-between"><span>Nuevo precio</span><strong>{newOption ? fmtMoney(newOption.product.basePrice) : "—"}</strong></div>
+                  <div className="flex justify-between"><span>Diferencia a cobrar</span><strong>{fmtMoney(difference)}</strong></div>
+                  <p className="text-xs text-muted-foreground mt-2">Si el nuevo producto cuesta menos, no se devuelve diferencia.</p>
+                </div>
+
+                <div><Label>Motivo</Label><Input value={reason} onChange={(e) => setReason(e.target.value)} /></div>
+                <Button onClick={submitExchange} className="w-full bg-foreground text-background hover:bg-foreground/90">Registrar cambio</Button>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Selecciona una venta confirmada para ver sus productos.</p>
+            )}
           </div>
         </TabsContent>
 
@@ -103,7 +190,7 @@ export default function AfterSales() {
               <ul className="max-h-64 overflow-y-auto rounded-lg border divide-y">
                 {found.slice(0, 20).map((s) => (
                   <li key={s.id}>
-                    <button onClick={() => setSelectedSale(s.id)} className={`w-full text-left px-3 py-2 hover:bg-secondary text-sm ${selectedSale === s.id ? "bg-gold-soft" : ""}`}>
+                    <button onClick={() => selectSale(s.id)} className={`w-full text-left px-3 py-2 hover:bg-secondary text-sm ${selectedSale === s.id ? "bg-gold-soft" : ""}`}>
                       <div className="flex justify-between"><span className="font-mono">{s.code}</span><span>{fmtMoney(s.total)}</span></div>
                     </button>
                   </li>

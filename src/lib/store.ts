@@ -444,9 +444,22 @@ export const useAppStore = create<State & Actions>()(
         set({ sales: updated, inventory: inv, afterSales: [after, ...get().afterSales] });
       },
 
-      registerExchange: (saleId, oldUnitCode, newUnitCode, diff, byUserId, byUserName, reason) => {
+      registerExchange: (saleId, oldUnitCode, newUnitCode, _diff, byUserId, byUserName, reason) => {
         const sale = get().sales.find((s) => s.id === saleId);
-        if (!sale) return;
+        if (!sale || sale.status !== "confirmada") throw new Error("Selecciona una venta confirmada");
+        const oldLine = sale.lines.find((l) => l.unitCode === oldUnitCode);
+        if (!oldLine) throw new Error("El producto devuelto no pertenece a la venta");
+
+        const isPairOld = oldUnitCode.startsWith("A");
+        const isPairNew = newUnitCode.startsWith("A");
+        const release = isPairOld ? [`${oldUnitCode}-D`, `${oldUnitCode}-I`] : [oldUnitCode];
+        const reserve = isPairNew ? [`${newUnitCode}-D`, `${newUnitCode}-I`] : [newUnitCode];
+        const reservedItems = reserve.map((code) => get().inventory.find((i) => i.unitCode === code));
+        if (reservedItems.some((item) => !item)) throw new Error("El nuevo producto no existe completo");
+        if (reservedItems.some((item) => item?.status !== "disponible")) throw new Error("El nuevo producto no está disponible");
+
+        const newProduct = get().products.find((p) => p.id === reservedItems[0]?.productId);
+        const diff = Math.max(0, (newProduct?.basePrice || 0) - oldLine.finalPrice);
         const after: AfterSale = {
           id: `as-${Date.now()}`,
           type: "cambio",
@@ -458,11 +471,6 @@ export const useAppStore = create<State & Actions>()(
           diff,
           timestamp: new Date().toISOString(),
         };
-        // Liberar viejo, marcar nuevo como vendido
-        const isPairOld = oldUnitCode.startsWith("A");
-        const isPairNew = newUnitCode.startsWith("A");
-        const release = isPairOld ? [`${oldUnitCode}-D`, `${oldUnitCode}-I`] : [oldUnitCode];
-        const reserve = isPairNew ? [`${newUnitCode}-D`, `${newUnitCode}-I`] : [newUnitCode];
         const inv = get().inventory.map((i) => {
           if (release.includes(i.unitCode)) return { ...i, status: "disponible" as ItemStatus };
           if (reserve.includes(i.unitCode)) return { ...i, status: "vendido" as ItemStatus };
