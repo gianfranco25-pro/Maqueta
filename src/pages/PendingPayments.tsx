@@ -46,11 +46,11 @@ export default function PendingPayments() {
 
   const sale = openId ? pending.find((s) => s.id === openId) : null;
 
-  // Cuando se abre una venta, cargar pagos propuestos por el vendedor
+  // Cuando se abre una venta, preparar el cobro real que registrará el cajero
   useEffect(() => {
     if (sale) {
-      setPayments(sale.payments && sale.payments.length > 0 ? sale.payments : [{ method: "efectivo", amount: sale.subtotal }]);
-      setEditing(false);
+      setPayments([{ method: "efectivo", amount: sale.subtotal }]);
+      setEditing(true);
     }
   }, [openId]);
 
@@ -110,7 +110,6 @@ export default function PendingPayments() {
         ) : (
           <ul className="divide-y divide-border/60">
             {pending.map((s) => {
-              const methods = (s.payments || []).map((p) => METHOD_LABEL[p.method].split(" ")[0]).join(" + ");
               return (
                 <li
                   key={s.id}
@@ -121,7 +120,6 @@ export default function PendingPayments() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-mono text-xs text-muted-foreground">{s.code}</p>
                       <StatusBadge kind="pendiente_cobro" />
-                      {methods && <span className="text-[10px] bg-secondary px-1.5 py-0.5 rounded">{methods}</span>}
                     </div>
                     <p className="font-medium truncate">{s.sellerName}</p>
                     <p className="text-xs text-muted-foreground">
@@ -172,12 +170,7 @@ export default function PendingPayments() {
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <Label className="text-xs uppercase font-semibold">Pago indicado por el vendedor</Label>
-                  {!editing && (
-                    <Button size="sm" variant="ghost" onClick={() => setEditing(true)} className="h-7 text-xs">
-                      <Pencil className="size-3 mr-1" /> Ajustar
-                    </Button>
-                  )}
+                  <Label className="text-xs uppercase font-semibold">Cobro real registrado por cajero</Label>
                 </div>
 
                 {!editing ? (
