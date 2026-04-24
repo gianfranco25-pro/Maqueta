@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CheckCircle2, CreditCard, ArrowLeftRight, Trash2, Receipt, ShieldAlert, XCircle, Pencil } from "lucide-react";
+import { CheckCircle2, CreditCard, ArrowLeftRight, Trash2, Receipt, ShieldAlert, XCircle } from "lucide-react";
 import type { PaymentMethod, PaymentSplit } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -39,7 +39,6 @@ export default function PendingPayments() {
   );
 
   const [openId, setOpenId] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
   const [payments, setPayments] = useState<PaymentSplit[]>([]);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -50,7 +49,6 @@ export default function PendingPayments() {
   useEffect(() => {
     if (sale) {
       setPayments([{ method: "efectivo", amount: sale.subtotal }]);
-      setEditing(true);
     }
   }, [openId]);
 
@@ -91,8 +89,6 @@ export default function PendingPayments() {
     setCancelReason("");
     setOpenId(null);
   };
-
-  const proposedTotal = sale ? sale.subtotal + (sale.totalSurcharge || 0) : 0;
 
   return (
     <>
