@@ -281,9 +281,9 @@ export default function NewSale() {
 
           <div className="rounded-2xl bg-card border border-border/60 p-4 text-xs text-muted-foreground space-y-1.5">
             <p className="font-semibold text-foreground">Flujo de la venta</p>
-            <p>1. Tú armas la venta y eliges el método de pago.</p>
+            <p>1. Tú armas la venta y registras el cliente.</p>
             <p>2. Queda <span className="font-semibold text-gold">Por cobrar</span>.</p>
-            <p>3. El cajero verifica el dinero y confirma.</p>
+            <p>3. El cobrador registra el método de pago, incluso pago mixto, y confirma.</p>
           </div>
         </div>
       </div>
