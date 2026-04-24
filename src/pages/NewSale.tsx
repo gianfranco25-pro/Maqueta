@@ -12,8 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { QRScanner, isPairCode, isValidUnitCode } from "@/components/QRScanner";
-import { ScanLine, Trash2, Plus, ShieldAlert, Send, CreditCard, ArrowLeftRight } from "lucide-react";
-import type { PaymentMethod, PaymentSplit, SaleLine } from "@/lib/types";
+import { ScanLine, Trash2, Plus, ShieldAlert, Send } from "lucide-react";
+import type { SaleLine } from "@/lib/types";
 import { fmtMoney } from "@/lib/format";
 import { toast } from "sonner";
 
@@ -31,7 +31,6 @@ export default function NewSale() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [payments, setPayments] = useState<PaymentSplit[]>([{ method: "efectivo", amount: 0 }]);
 
   const addUnit = (code: string) => {
     code = code.trim().toUpperCase();
@@ -124,33 +123,9 @@ export default function NewSale() {
   const discountTotal = lines.reduce((a, l) => a + Math.max(0, l.discount), 0);
   const exceedsDiscount = discountTotal > settings.maxDiscountSoles;
 
-  // Pagos
-  const surchargeTotal = payments.reduce((a, p) => a + (p.surcharge || 0), 0);
-  const total = subtotal + surchargeTotal;
-  const paid = payments.reduce((a, p) => a + p.amount + (p.surcharge || 0), 0);
-  const remaining = total - paid;
-
-  const updatePayment = (i: number, patch: Partial<PaymentSplit>) =>
-    setPayments(payments.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
-  const addPayment = () => setPayments([...payments, { method: "efectivo", amount: 0 }]);
-  const removePayment = (i: number) => setPayments(payments.filter((_, idx) => idx !== i));
-  const applyCardSurcharge = (i: number, apply: boolean) => {
-    const p = payments[i];
-    const surcharge = apply ? +(p.amount * (settings.cardSurchargePct / 100)).toFixed(2) : 0;
-    updatePayment(i, { surcharge });
-  };
-  // Auto-ajustar primer pago al subtotal cuando cambian las líneas y solo hay un pago
-  useEffect(() => {
-    if (payments.length === 1 && payments[0].method !== "tarjeta") {
-      setPayments([{ ...payments[0], amount: subtotal }]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subtotal]);
-
   const sendToCashier = () => {
     if (!user) return;
     if (lines.length === 0) return toast.error("Agrega al menos un producto");
-    if (Math.abs(remaining) > 0.01) return toast.error(`Pago no cuadra: ${remaining > 0 ? "falta" : "sobra"} ${fmtMoney(Math.abs(remaining))}`);
     if (exceedsDiscount) {
       requestAuth({
         type: "descuento_excedido",
@@ -169,9 +144,9 @@ export default function NewSale() {
       customerPhone: customerPhone || undefined,
       lines,
       subtotal,
-      payments,
-      totalSurcharge: surchargeTotal,
-      total,
+      payments: [],
+      totalSurcharge: 0,
+      total: subtotal,
     });
     toast.success(`Venta ${sale.code} enviada a cobro`, { description: "El cajero la verá en 'Por cobrar'" });
     navigate("/ventas");
@@ -264,59 +239,8 @@ export default function NewSale() {
             </div>
           </div>
 
-          <div className="rounded-2xl bg-card border border-border/60 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-display font-bold">Método de pago</h2>
-              <span className="text-xs text-muted-foreground">El cajero solo verifica y confirma</span>
-            </div>
-            <div className="space-y-2">
-              {payments.map((p, i) => (
-                <div key={i} className="rounded-xl border border-border p-2 space-y-1.5">
-                  <div className="flex gap-2 items-center">
-                    <select
-                      value={p.method}
-                      onChange={(e) => updatePayment(i, { method: e.target.value as PaymentMethod, surcharge: 0 })}
-                      className="flex-1 rounded-md border border-input bg-card text-sm h-9 px-2"
-                    >
-                      <option value="efectivo">💵 Efectivo</option>
-                      <option value="transferencia">🏦 Transferencia</option>
-                      <option value="yape_plin">📱 Yape/Plin</option>
-                      <option value="tarjeta">💳 Tarjeta</option>
-                    </select>
-                    <Input
-                      type="number"
-                      value={p.amount}
-                      onChange={(e) => updatePayment(i, { amount: +e.target.value })}
-                      className="w-28"
-                      placeholder="Monto"
-                    />
-                    {payments.length > 1 && (
-                      <Button size="icon" variant="ghost" onClick={() => removePayment(i)}>
-                        <Trash2 className="size-4" />
-                      </Button>
-                    )}
-                  </div>
-                  {p.method === "tarjeta" && (
-                    <label className="flex items-center justify-between text-xs gap-2 bg-secondary/50 rounded-md px-2 py-1.5">
-                      <span className="flex items-center gap-1.5">
-                        <CreditCard className="size-3.5" />Recargo {settings.cardSurchargePct}%
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={(p.surcharge || 0) > 0}
-                        onChange={(e) => applyCardSurcharge(i, e.target.checked)}
-                      />
-                    </label>
-                  )}
-                  {p.method === "tarjeta" && (p.surcharge || 0) > 0 && (
-                    <p className="text-xs text-muted-foreground">+{fmtMoney(p.surcharge!)} de recargo</p>
-                  )}
-                </div>
-              ))}
-              <Button variant="outline" size="sm" onClick={addPayment} className="w-full">
-                <ArrowLeftRight className="size-4 mr-1" /> Pago mixto
-              </Button>
-            </div>
+          <div className="rounded-2xl bg-card border border-border/60 p-4 text-sm text-muted-foreground">
+            El método de pago y el cobro real serán registrados por el cajero al confirmar la venta.
           </div>
         </div>
 
@@ -336,26 +260,10 @@ export default function NewSale() {
               <span className="opacity-70">Subtotal</span>
               <span>{fmtMoney(subtotal)}</span>
             </div>
-            {surchargeTotal > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="opacity-70">Recargo tarjeta</span>
-                <span>+{fmtMoney(surchargeTotal)}</span>
-              </div>
-            )}
             <div className="flex justify-between font-display font-extrabold text-2xl pt-1 border-t border-background/20">
-              <span>Total</span>
-              <span className="text-accent">{fmtMoney(total)}</span>
+              <span>Total preliminar</span>
+              <span className="text-accent">{fmtMoney(subtotal)}</span>
             </div>
-            <div className="flex justify-between text-xs">
-              <span className="opacity-70">Pagado</span>
-              <span>{fmtMoney(paid)}</span>
-            </div>
-            {Math.abs(remaining) > 0.01 && (
-              <div className={`flex justify-between text-xs font-semibold ${remaining > 0 ? "text-critical" : "text-accent"}`}>
-                <span>{remaining > 0 ? "Falta" : "Sobra"}</span>
-                <span>{fmtMoney(Math.abs(remaining))}</span>
-              </div>
-            )}
             {exceedsDiscount && (
               <div className="rounded-lg bg-critical/20 text-background p-2 text-xs flex items-start gap-2 mt-2">
                 <ShieldAlert className="size-4 shrink-0 mt-0.5" />
@@ -364,7 +272,7 @@ export default function NewSale() {
             )}
             <Button
               onClick={sendToCashier}
-              disabled={lines.length === 0 || Math.abs(remaining) > 0.01}
+              disabled={lines.length === 0}
               className="w-full h-12 mt-2 bg-gradient-gold text-accent-foreground hover:opacity-90 font-bold"
             >
               <Send className="size-5 mr-2" /> Enviar al cajero

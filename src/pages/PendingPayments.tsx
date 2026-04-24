@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CheckCircle2, CreditCard, ArrowLeftRight, Trash2, Receipt, ShieldAlert, XCircle, Pencil } from "lucide-react";
+import { CheckCircle2, CreditCard, ArrowLeftRight, Trash2, Receipt, ShieldAlert, XCircle } from "lucide-react";
 import type { PaymentMethod, PaymentSplit } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -39,18 +39,16 @@ export default function PendingPayments() {
   );
 
   const [openId, setOpenId] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
   const [payments, setPayments] = useState<PaymentSplit[]>([]);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
 
   const sale = openId ? pending.find((s) => s.id === openId) : null;
 
-  // Cuando se abre una venta, cargar pagos propuestos por el vendedor
+  // Cuando se abre una venta, preparar el cobro real que registrará el cajero
   useEffect(() => {
     if (sale) {
-      setPayments(sale.payments && sale.payments.length > 0 ? sale.payments : [{ method: "efectivo", amount: sale.subtotal }]);
-      setEditing(false);
+      setPayments([{ method: "efectivo", amount: sale.subtotal }]);
     }
   }, [openId]);
 
@@ -92,8 +90,6 @@ export default function PendingPayments() {
     setOpenId(null);
   };
 
-  const proposedTotal = sale ? sale.subtotal + (sale.totalSurcharge || 0) : 0;
-
   return (
     <>
       <PageHeader
@@ -110,7 +106,6 @@ export default function PendingPayments() {
         ) : (
           <ul className="divide-y divide-border/60">
             {pending.map((s) => {
-              const methods = (s.payments || []).map((p) => METHOD_LABEL[p.method].split(" ")[0]).join(" + ");
               return (
                 <li
                   key={s.id}
@@ -121,7 +116,6 @@ export default function PendingPayments() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-mono text-xs text-muted-foreground">{s.code}</p>
                       <StatusBadge kind="pendiente_cobro" />
-                      {methods && <span className="text-[10px] bg-secondary px-1.5 py-0.5 rounded">{methods}</span>}
                     </div>
                     <p className="font-medium truncate">{s.sellerName}</p>
                     <p className="text-xs text-muted-foreground">
@@ -172,28 +166,10 @@ export default function PendingPayments() {
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <Label className="text-xs uppercase font-semibold">Pago indicado por el vendedor</Label>
-                  {!editing && (
-                    <Button size="sm" variant="ghost" onClick={() => setEditing(true)} className="h-7 text-xs">
-                      <Pencil className="size-3 mr-1" /> Ajustar
-                    </Button>
-                  )}
+                  <Label className="text-xs uppercase font-semibold">Cobro real registrado por cajero</Label>
                 </div>
 
-                {!editing ? (
-                  <div className="rounded-xl border border-border divide-y">
-                    {payments.map((p, i) => (
-                      <div key={i} className="flex justify-between items-center p-2 text-sm">
-                        <span>{METHOD_LABEL[p.method]}</span>
-                        <span className="font-semibold">
-                          {fmtMoney(p.amount + (p.surcharge || 0))}
-                          {p.surcharge ? <span className="text-xs text-muted-foreground"> (+{fmtMoney(p.surcharge)})</span> : null}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
+                <div className="space-y-2">
                     {payments.map((p, i) => (
                       <div key={i} className="rounded-xl border border-border p-2 space-y-1.5">
                         <div className="flex gap-2 items-center">
@@ -237,7 +213,6 @@ export default function PendingPayments() {
                       <ArrowLeftRight className="size-4 mr-1" /> Pago mixto
                     </Button>
                   </div>
-                )}
               </div>
 
               <div className="rounded-2xl bg-foreground text-background p-3 space-y-1.5">
