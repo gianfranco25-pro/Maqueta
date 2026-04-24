@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { QRScanner } from "@/components/QRScanner";
+import { isPairCode, QRScanner } from "@/components/QRScanner";
 import { toast } from "sonner";
 import { fmtDateTime } from "@/lib/format";
 
@@ -29,17 +29,24 @@ export default function InventoryTransfers() {
   const addCode = (c: string) => {
     const code = c.toUpperCase();
     if (codes.includes(code)) return;
-    if (!inventory.find((i) => i.unitCode === code)) return toast.error("Código no existe");
+    const exists = isPairCode(code)
+      ? inventory.some((i) => i.unitCode === `${code}-D`) && inventory.some((i) => i.unitCode === `${code}-I`)
+      : inventory.some((i) => i.unitCode === code);
+    if (!exists) return toast.error("Código no existe");
     setCodes([...codes, code]);
   };
 
   const submit = () => {
     if (!user) return;
     if (codes.length === 0) return toast.error("Agrega al menos un código");
-    transfer(codes, toLoc, user.id, user.name, received || undefined);
-    toast.success(`${codes.length} ítems trasladados`);
-    setCodes([]);
-    setReceived("");
+    try {
+      transfer(codes, toLoc, user.id, user.name, received || undefined);
+      toast.success("Traslado registrado");
+      setCodes([]);
+      setReceived("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo registrar el traslado");
+    }
   };
 
   return (
@@ -47,7 +54,7 @@ export default function InventoryTransfers() {
       <PageHeader title="Traslados" subtitle="Mueve ítems entre ubicaciones" />
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="rounded-2xl bg-card border p-5 space-y-4">
-          <QRScanner onResult={(c) => addCode(c)} />
+          <QRScanner onResult={(c) => addCode(c)} allowPairCodes />
           <div className="rounded-lg border p-3 space-y-2">
             <p className="text-xs uppercase font-semibold tracking-wider text-muted-foreground">Items a trasladar</p>
             {codes.length === 0 ? <p className="text-sm text-muted-foreground">Escanea o ingresa códigos</p> :
