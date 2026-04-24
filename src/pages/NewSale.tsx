@@ -262,8 +262,56 @@ export default function NewSale() {
             </div>
           </div>
 
-          <div className="rounded-2xl bg-card border border-border/60 p-4 text-sm text-muted-foreground">
-            El método de pago y el cobro real serán registrados por el cajero al confirmar la venta.
+          <div className="rounded-2xl bg-card border border-border/60 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display font-bold">Pago cobrado por vendedor</h2>
+              <span className="text-xs text-muted-foreground">El cobrador solo confirma</span>
+            </div>
+            <div className="space-y-2">
+              {payments.map((p, i) => (
+                <div key={i} className="rounded-xl border border-border p-2 space-y-1.5">
+                  <div className="flex gap-2 items-center">
+                    <select
+                      value={p.method}
+                      onChange={(e) => updatePayment(i, { method: e.target.value as PaymentMethod, surcharge: 0 })}
+                      className="flex-1 rounded-md border border-input bg-card text-sm h-9 px-2"
+                    >
+                      <option value="efectivo">💵 Efectivo</option>
+                      <option value="transferencia">🏦 Transferencia</option>
+                      <option value="yape_plin">📱 Yape/Plin</option>
+                      <option value="tarjeta">💳 Tarjeta</option>
+                    </select>
+                    <Input
+                      type="number"
+                      value={p.amount}
+                      onChange={(e) => updatePayment(i, { amount: +e.target.value })}
+                      className="w-28"
+                      placeholder="Monto"
+                    />
+                    {payments.length > 1 && (
+                      <Button size="icon" variant="ghost" onClick={() => removePayment(i)}>
+                        <Trash2 className="size-4" />
+                      </Button>
+                    )}
+                  </div>
+                  {p.method === "tarjeta" && (
+                    <label className="flex items-center justify-between text-xs gap-2 bg-secondary/50 rounded-md px-2 py-1.5">
+                      <span className="flex items-center gap-1.5">
+                        <CreditCard className="size-3.5" />Recargo {settings.cardSurchargePct}%
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={(p.surcharge || 0) > 0}
+                        onChange={(e) => applyCardSurcharge(i, e.target.checked)}
+                      />
+                    </label>
+                  )}
+                </div>
+              ))}
+              <Button variant="outline" size="sm" onClick={addPayment} className="w-full">
+                <ArrowLeftRight className="size-4 mr-1" /> Agregar pago mixto
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -283,10 +331,23 @@ export default function NewSale() {
               <span className="opacity-70">Subtotal</span>
               <span>{fmtMoney(subtotal)}</span>
             </div>
+            {surchargeTotal > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="opacity-70">Recargo tarjeta</span>
+                <span>+{fmtMoney(surchargeTotal)}</span>
+              </div>
+            )}
             <div className="flex justify-between font-display font-extrabold text-2xl pt-1 border-t border-background/20">
-              <span>Total preliminar</span>
-              <span className="text-accent">{fmtMoney(subtotal)}</span>
+              <span>Total</span>
+              <span className="text-accent">{fmtMoney(total)}</span>
             </div>
+            <div className="flex justify-between text-xs"><span className="opacity-70">Pagado</span><span>{fmtMoney(paid)}</span></div>
+            {Math.abs(remaining) > 0.01 && (
+              <div className={`flex justify-between text-xs font-semibold ${remaining > 0 ? "text-critical" : "text-accent"}`}>
+                <span>{remaining > 0 ? "Falta" : "Sobra"}</span>
+                <span>{fmtMoney(Math.abs(remaining))}</span>
+              </div>
+            )}
             {exceedsDiscount && (
               <div className="rounded-lg bg-critical/20 text-background p-2 text-xs flex items-start gap-2 mt-2">
                 <ShieldAlert className="size-4 shrink-0 mt-0.5" />
@@ -295,7 +356,7 @@ export default function NewSale() {
             )}
             <Button
               onClick={sendToCashier}
-              disabled={lines.length === 0}
+              disabled={lines.length === 0 || Math.abs(remaining) > 0.01}
               className="w-full h-12 mt-2 bg-gradient-gold text-accent-foreground hover:opacity-90 font-bold"
             >
               <Send className="size-5 mr-2" /> Enviar al cajero
@@ -304,9 +365,9 @@ export default function NewSale() {
 
           <div className="rounded-2xl bg-card border border-border/60 p-4 text-xs text-muted-foreground space-y-1.5">
             <p className="font-semibold text-foreground">Flujo de la venta</p>
-            <p>1. Tú armas la venta y registras el cliente.</p>
+            <p>1. Tú armas la venta, cobras y registras el método de pago.</p>
             <p>2. Queda <span className="font-semibold text-gold">Por cobrar</span>.</p>
-            <p>3. El cobrador registra el método de pago, incluso pago mixto, y confirma.</p>
+            <p>3. El cobrador revisa cómo se vendió, cuánto se cobró y confirma.</p>
           </div>
         </div>
       </div>
