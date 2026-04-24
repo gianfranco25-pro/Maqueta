@@ -166,7 +166,7 @@ export default function PendingPayments() {
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <Label className="text-xs uppercase font-semibold">Cobro real registrado por cajero</Label>
+                  <Label className="text-xs uppercase font-semibold">Cobro real registrado por cobrador</Label>
                 </div>
 
                 <div className="space-y-2">
@@ -210,7 +210,7 @@ export default function PendingPayments() {
                       </div>
                     ))}
                     <Button variant="outline" size="sm" onClick={addPayment} className="w-full">
-                      <ArrowLeftRight className="size-4 mr-1" /> Pago mixto
+                      <ArrowLeftRight className="size-4 mr-1" /> Agregar pago mixto
                     </Button>
                   </div>
               </div>
@@ -231,7 +231,7 @@ export default function PendingPayments() {
                 {Math.abs(remaining) > 0.01 && (
                   <div className="rounded-lg bg-critical/20 text-background p-2 text-xs flex items-start gap-2">
                     <ShieldAlert className="size-3.5 shrink-0 mt-0.5" />
-                    <span>El monto cobrado no coincide. Ajusta antes de confirmar.</span>
+                    <span>El monto cobrado por el cobrador no coincide. Ajusta antes de confirmar.</span>
                   </div>
                 )}
               </div>
