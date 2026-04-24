@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/AppShell";
 import { useAppStore, useCurrentUser } from "@/lib/store";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CheckCircle2, CreditCard, ArrowLeftRight, Trash2, Receipt, ShieldAlert, XCircle } from "lucide-react";
-import type { PaymentMethod, PaymentSplit } from "@/lib/types";
+import { CheckCircle2, Receipt, XCircle } from "lucide-react";
+import type { PaymentMethod } from "@/lib/types";
 import { toast } from "sonner";
 
 import { useCan } from "@/components/Can";
@@ -27,7 +27,6 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
 
 export default function PendingPayments() {
   const sales = useAppStore((s) => s.sales);
-  const settings = useAppStore((s) => s.settings);
   const confirmSalePayment = useAppStore((s) => s.confirmSalePayment);
   const cancelDraftSale = useAppStore((s) => s.cancelDraftSale);
   const user = useCurrentUser();
@@ -39,41 +38,21 @@ export default function PendingPayments() {
   );
 
   const [openId, setOpenId] = useState<string | null>(null);
-  const [payments, setPayments] = useState<PaymentSplit[]>([]);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
 
   const sale = openId ? pending.find((s) => s.id === openId) : null;
 
-  // Cuando se abre una venta, preparar el cobro real que registrará el cajero
-  useEffect(() => {
-    if (sale) {
-      setPayments([{ method: "efectivo", amount: sale.subtotal }]);
-    }
-  }, [openId]);
-
   const openSale = (id: string) => setOpenId(id);
 
-  const surchargeTotal = payments.reduce((a, p) => a + (p.surcharge || 0), 0);
-  const total = (sale?.subtotal || 0) + surchargeTotal;
-  const paid = payments.reduce((a, p) => a + p.amount + (p.surcharge || 0), 0);
-  const remaining = total - paid;
-
-  const updatePayment = (i: number, patch: Partial<PaymentSplit>) =>
-    setPayments(payments.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
-  const addPayment = () => setPayments([...payments, { method: "efectivo", amount: 0 }]);
-  const removePayment = (i: number) => setPayments(payments.filter((_, idx) => idx !== i));
-  const applyCardSurcharge = (i: number, apply: boolean) => {
-    const p = payments[i];
-    const surcharge = apply ? +(p.amount * (settings.cardSurchargePct / 100)).toFixed(2) : 0;
-    updatePayment(i, { surcharge });
-  };
+  const paid = sale?.payments.reduce((a, p) => a + p.amount + (p.surcharge || 0), 0) || 0;
+  const remaining = sale ? sale.total - paid : 0;
 
   const confirm = () => {
     if (!sale || !user) return;
     if (remaining > 0.001) return toast.error(`Falta ${fmtMoney(remaining)} por cobrar`);
-    if (paid - total > 0.001) return toast.error(`Sobra ${fmtMoney(paid - total)} — ajusta el monto`);
-    const updated = confirmSalePayment(sale.id, payments, surchargeTotal, total, user.id, user.name);
+    if (paid - sale.total > 0.001) return toast.error(`Sobra ${fmtMoney(paid - sale.total)} — debe corregirlo el vendedor`);
+    const updated = confirmSalePayment(sale.id, sale.payments, sale.totalSurcharge, sale.total, user.id, user.name);
     if (updated) {
       toast.success(`Venta ${updated.code} cobrada`, { description: fmtMoney(updated.total) });
       setOpenId(null);
