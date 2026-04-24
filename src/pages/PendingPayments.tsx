@@ -169,20 +169,7 @@ export default function PendingPayments() {
                   <Label className="text-xs uppercase font-semibold">Cobro real registrado por cajero</Label>
                 </div>
 
-                {!editing ? (
-                  <div className="rounded-xl border border-border divide-y">
-                    {payments.map((p, i) => (
-                      <div key={i} className="flex justify-between items-center p-2 text-sm">
-                        <span>{METHOD_LABEL[p.method]}</span>
-                        <span className="font-semibold">
-                          {fmtMoney(p.amount + (p.surcharge || 0))}
-                          {p.surcharge ? <span className="text-xs text-muted-foreground"> (+{fmtMoney(p.surcharge)})</span> : null}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
+                <div className="space-y-2">
                     {payments.map((p, i) => (
                       <div key={i} className="rounded-xl border border-border p-2 space-y-1.5">
                         <div className="flex gap-2 items-center">
@@ -226,7 +213,6 @@ export default function PendingPayments() {
                       <ArrowLeftRight className="size-4 mr-1" /> Pago mixto
                     </Button>
                   </div>
-                )}
               </div>
 
               <div className="rounded-2xl bg-foreground text-background p-3 space-y-1.5">
