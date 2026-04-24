@@ -31,6 +31,29 @@ import type {
 
 const initialInv = buildInitialInventory();
 
+const expandOperationalCodes = (rawCodes: string[], inventory: InventoryItem[]) => {
+  const expanded = rawCodes.flatMap((raw) => {
+    const code = raw.trim().toUpperCase();
+    if (/^A\d{5}$/.test(code)) return [`${code}-D`, `${code}-I`];
+    return [code];
+  });
+  return Array.from(new Set(expanded));
+};
+
+const getValidatedAvailableItems = (rawCodes: string[], inventory: InventoryItem[]) => {
+  const unitCodes = expandOperationalCodes(rawCodes, inventory);
+  const items = unitCodes.map((code) => inventory.find((i) => i.unitCode === code));
+  const missing = unitCodes.filter((_, index) => !items[index]);
+  if (missing.length) throw new Error(`Código no existe: ${missing.join(", ")}`);
+
+  const unavailable = items.filter((item): item is InventoryItem => Boolean(item) && item.status !== "disponible");
+  if (unavailable.length) {
+    throw new Error(`No disponible: ${unavailable.map((i) => i.unitCode).join(", ")}`);
+  }
+
+  return { unitCodes, items: items as InventoryItem[] };
+};
+
 type State = {
   // Sesión simulada
   currentUserId: string;
@@ -209,11 +232,20 @@ export const useAppStore = create<State & Actions>()(
           ),
         }),
 
-      transferItems: (unitCodes, toLocationId, byUserId, byUserName, receivedBy) => {
-        const inv = get().inventory.map((i) =>
+      transferItems: (rawCodes, toLocationId, byUserId, byUserName, receivedBy) => {
+        const inventory = get().inventory;
+        const { unitCodes, items } = getValidatedAvailableItems(rawCodes, inventory);
+        const fromLocationId = items[0]?.locationId;
+
+        if (!toLocationId) throw new Error("Selecciona una ubicación destino");
+        if (items.some((i) => i.locationId !== fromLocationId)) {
+          throw new Error("Todos los ítems deben salir de la misma ubicación");
+        }
+        if (fromLocationId === toLocationId) throw new Error("El destino debe ser distinto al origen");
+
+        const inv = inventory.map((i) =>
           unitCodes.includes(i.unitCode) ? { ...i, locationId: toLocationId, status: "disponible" as ItemStatus } : i
         );
-        const fromLocationId = get().inventory.find((i) => unitCodes.includes(i.unitCode))?.locationId;
         const mv: Movement = {
           id: `mv-${Date.now()}`,
           type: "traslado",
@@ -228,17 +260,40 @@ export const useAppStore = create<State & Actions>()(
         set({ inventory: inv, movements: [mv, ...get().movements] });
       },
 
-      deliverFromWarehouse: (unitCodes, byUserId, byUserName, receivedBy) => {
+      deliverFromWarehouse: (rawCodes, byUserId, byUserName, receivedBy) => {
+        const inventory = get().inventory;
+        const warehouseIds = get().locations.filter((l) => l.type === "almacen").map((l) => l.id);
+        const receiver = get().users.find((u) => u.active && u.name.toLowerCase() === (receivedBy || "").trim().toLowerCase());
+        const { unitCodes, items } = getValidatedAvailableItems(rawCodes, inventory);
+        const fromLocationId = items[0]?.locationId;
+        const toLocationId = receiver?.locationId;
+
+        if (!receivedBy?.trim()) throw new Error("Indica quién recibe");
+        if (items.some((i) => i.locationId !== fromLocationId)) {
+          throw new Error("Todos los ítems deben salir del mismo depósito");
+        }
+        if (!fromLocationId || !warehouseIds.includes(fromLocationId)) {
+          throw new Error("Solo se pueden entregar ítems que están en depósito");
+        }
+        if (!toLocationId) {
+          throw new Error("Para entregar a otros usa traslado y elige una ubicación destino");
+        }
+
+        const inv = inventory.map((i) =>
+          unitCodes.includes(i.unitCode) ? { ...i, locationId: toLocationId, status: "disponible" as ItemStatus } : i
+        );
         const mv: Movement = {
           id: `mv-${Date.now()}`,
           type: "entrega",
           unitCodes,
+          fromLocationId,
+          toLocationId,
           byUserId,
           byUserName,
-          receivedBy,
+          receivedBy: receiver.name,
           timestamp: new Date().toISOString(),
         };
-        set({ movements: [mv, ...get().movements] });
+        set({ inventory: inv, movements: [mv, ...get().movements] });
       },
 
       markAsSample: (unitCode) =>
