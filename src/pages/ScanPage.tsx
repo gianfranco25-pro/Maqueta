@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { fmtMoney } from "@/lib/format";
 import { Package, ShoppingCart, Truck, AlertTriangle } from "lucide-react";
+import { Can } from "@/components/Can";
 
 export default function ScanPage() {
   const inventory = useAppStore((s) => s.inventory);
@@ -79,17 +80,23 @@ export default function ScanPage() {
               )}
 
               <div className="grid grid-cols-2 gap-2">
-                <Link to="/ventas/nueva" state={{ prefillUnit: item.unitCode }}>
-                  <Button className="w-full bg-foreground text-background hover:bg-foreground/90">
-                    <ShoppingCart className="size-4 mr-1" /> Vender
-                  </Button>
-                </Link>
-                <Link to="/inventario/traslados" state={{ prefillUnit: item.unitCode }}>
-                  <Button variant="outline" className="w-full"><Truck className="size-4 mr-1" /> Trasladar</Button>
-                </Link>
-                <Link to="/inventario/fallas" state={{ prefillUnit: item.unitCode }}>
-                  <Button variant="outline" className="w-full"><AlertTriangle className="size-4 mr-1" /> Marcar falla</Button>
-                </Link>
+                <Can cap="sales.create">
+                  <Link to="/ventas/nueva" state={{ prefillUnit: item.unitCode }}>
+                    <Button className="w-full bg-foreground text-background hover:bg-foreground/90">
+                      <ShoppingCart className="size-4 mr-1" /> Vender
+                    </Button>
+                  </Link>
+                </Can>
+                <Can cap="inventory.transfer">
+                  <Link to="/inventario/traslados" state={{ prefillUnit: item.unitCode }}>
+                    <Button variant="outline" className="w-full"><Truck className="size-4 mr-1" /> Trasladar</Button>
+                  </Link>
+                </Can>
+                <Can cap="inventory.fault">
+                  <Link to="/inventario/fallas" state={{ prefillUnit: item.unitCode }}>
+                    <Button variant="outline" className="w-full"><AlertTriangle className="size-4 mr-1" /> Marcar falla</Button>
+                  </Link>
+                </Can>
                 <Button variant="outline" className="w-full" onClick={() => setScanned(null)}>
                   <Package className="size-4 mr-1" /> Otro
                 </Button>
