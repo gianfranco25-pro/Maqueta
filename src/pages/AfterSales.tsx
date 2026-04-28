@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fmtDateTime, fmtMoney } from "@/lib/format";
 import { toast } from "sonner";
+import { getProductPrices } from "@/lib/pricing";
 import {
   Tabs,
   TabsList,
@@ -62,7 +63,7 @@ export default function AfterSales() {
   }, [inventory, products]);
 
   const newOption = availableOptions.find((option) => option.code === newUnit);
-  const difference = oldLine && newOption ? Math.max(0, newOption.product.basePrice - oldLine.finalPrice) : 0;
+  const difference = oldLine && newOption ? Math.max(0, getProductPrices(newOption.product).basePrice - oldLine.finalPrice) : 0;
 
   const selectSale = (id: string) => {
     setSelectedSale(id);
@@ -159,7 +160,7 @@ export default function AfterSales() {
                       >
                         <div className="flex justify-between gap-3">
                           <span className="font-medium">{option.product.brand} {option.product.model}</span>
-                          <span>{fmtMoney(option.product.basePrice)}</span>
+                          <span>{fmtMoney(getProductPrices(option.product).basePrice)}</span>
                         </div>
                         <p className="font-mono text-xs text-muted-foreground">{option.code}</p>
                       </button>
@@ -169,7 +170,7 @@ export default function AfterSales() {
 
                 <div className="rounded-lg bg-secondary p-3 text-sm">
                   <div className="flex justify-between"><span>Vendido en</span><strong>{oldLine ? fmtMoney(oldLine.finalPrice) : "—"}</strong></div>
-                  <div className="flex justify-between"><span>Nuevo precio</span><strong>{newOption ? fmtMoney(newOption.product.basePrice) : "—"}</strong></div>
+                  <div className="flex justify-between"><span>Nuevo precio</span><strong>{newOption ? fmtMoney(getProductPrices(newOption.product).basePrice) : "—"}</strong></div>
                   <div className="flex justify-between"><span>Diferencia a cobrar</span><strong>{fmtMoney(difference)}</strong></div>
                   <p className="text-xs text-muted-foreground mt-2">Si el nuevo producto cuesta menos, no se devuelve diferencia.</p>
                 </div>
