@@ -29,6 +29,7 @@ import {
   Sale,
   User,
 } from "./types";
+import { getProductPrices } from "./pricing";
 
 const initialInv = buildInitialInventory();
 
@@ -493,7 +494,7 @@ export const useAppStore = create<State & Actions>()(
         if (reservedItems.some((item) => item?.status !== "disponible")) throw new Error("El nuevo producto no está disponible");
 
         const newProduct = get().products.find((p) => p.id === reservedItems[0]?.productId);
-        const diff = Math.max(0, (newProduct?.basePrice || 0) - oldLine.finalPrice);
+        const diff = Math.max(0, (newProduct ? getProductPrices(newProduct).basePrice : 0) - oldLine.finalPrice);
         const after: AfterSale = {
           id: `as-${Date.now()}`,
           type: "cambio",
