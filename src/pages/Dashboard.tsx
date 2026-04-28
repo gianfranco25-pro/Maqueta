@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/AppShell";
 import { useCurrentUser, useAppStore } from "@/lib/store";
-import { ROLE_LABELS } from "@/lib/types";
+import { formatUserRoles, getUserRoles } from "@/lib/types";
 import { StatCard } from "@/components/StatCard";
 import { QuickTile } from "@/components/QuickTile";
 import { useDashboardMetrics, useMyCommission } from "@/lib/metrics";
@@ -28,17 +28,18 @@ import { StatusBadge } from "@/components/StatusBadge";
 export default function Dashboard() {
   const user = useCurrentUser();
   if (!user) return null;
+  const roles = getUserRoles(user);
   return (
     <>
       <PageHeader
         title={`Hola, ${user.name.split(" ")[0]}`}
-        subtitle={`${ROLE_LABELS[user.role]} · ${new Date().toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long" })}`}
+        subtitle={`${formatUserRoles(user)} · ${new Date().toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long" })}`}
       />
-      {user.role === "admin" && <AdminDashboard />}
-      {user.role === "vendedor" && <SellerDashboard />}
-      {user.role === "cajero" && <CashierDashboard />}
-      {user.role === "almacen" && <WarehouseDashboard />}
-      {user.role === "administrativo" && <AdministrativeDashboard />}
+      {roles.includes("admin") && <AdminDashboard />}
+      {!roles.includes("admin") && roles.includes("vendedor") && <SellerDashboard />}
+      {!roles.includes("admin") && roles.includes("cajero") && <CashierDashboard />}
+      {!roles.includes("admin") && roles.includes("almacen") && <WarehouseDashboard />}
+      {!roles.includes("admin") && roles.includes("administrativo") && <AdministrativeDashboard />}
     </>
   );
 }
