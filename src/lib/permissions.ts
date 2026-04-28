@@ -77,6 +77,7 @@ const ALL: Capability[] = [
 export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
   admin: ALL,
   vendedor: [
+    "attendance.mark",
     "sales.create",
     "sales.price.edit",
     "aftersales.exchange",
@@ -84,9 +85,11 @@ export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
     "income.own",
   ],
   cajero: [
+    "attendance.mark",
     "sales.collect",
   ],
   almacen: [
+    "attendance.mark",
     "inventory.view",
     "inventory.entry",
     "inventory.transfer",
