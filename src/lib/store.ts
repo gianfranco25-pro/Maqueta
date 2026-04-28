@@ -143,7 +143,7 @@ export const useAppStore = create<State & Actions>()(
 
       setCurrentUser: (id) => set({ currentUserId: id }),
       switchToFirstUserOfRole: (role) => {
-        const u = get().users.find((x) => x.role === role && x.active);
+        const u = get().users.find((x) => (x.roles?.includes(role) || x.role === role) && x.active);
         if (u) set({ currentUserId: u.id });
       },
 
