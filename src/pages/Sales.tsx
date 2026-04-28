@@ -142,7 +142,7 @@ export default function Sales() {
                     className="w-full"
                     onClick={() => {
                       if (!voidReason.trim()) return toast.error("Indica un motivo");
-                      voidSale(sale.id, voidReason, user!.id, user!.name);
+                      voidSale(sale.id, voidReason, user!.id, user!.name, user!.role);
                       toast.success("Venta anulada");
                       setOpen(null);
                       setVoidReason("");
