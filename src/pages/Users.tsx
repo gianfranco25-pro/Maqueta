@@ -18,6 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatUserRoles, getUserRoles, ROLE_LABELS, type Role } from "@/lib/types";
 import { Plus, Power, MapPin, Phone, IdCard } from "lucide-react";
@@ -159,18 +160,29 @@ export default function Users() {
               </div>
             </div>
             <div>
-              <Label>Rol</Label>
-              <Select value={form.roles.join("+")} onValueChange={(v) => {
-                const roles = v.split("+") as Role[];
-                setForm({ ...form, role: roles[0], roles });
+              <Label>Rol principal</Label>
+              <Select value={form.role} onValueChange={(v) => {
+                const role = v as Role;
+                setForm({ ...form, role, roles: role === "vendedor" && form.roles.includes("almacen") ? ["vendedor", "almacen"] : [role] });
               }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {ROLES.map((r) => <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>)}
-                  <SelectItem value="vendedor+almacen">Vendedor + Almacén</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {form.role === "vendedor" && (
+              <label className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm">
+                <Checkbox
+                  checked={form.roles.includes("almacen")}
+                  onCheckedChange={(checked) => setForm({
+                    ...form,
+                    roles: checked ? ["vendedor", "almacen"] : ["vendedor"],
+                  })}
+                />
+                <span>Agregar rol secundario de Almacén</span>
+              </label>
+            )}
             <div>
               <Label>Ubicación</Label>
               <Select value={form.locationId} onValueChange={(v) => setForm({ ...form, locationId: v })}>
