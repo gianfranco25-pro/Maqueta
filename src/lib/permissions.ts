@@ -73,24 +73,16 @@ const ALL: Capability[] = [
 export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
   admin: ALL,
   vendedor: [
-    "attendance.mark",
     "sales.view.own",
     "sales.create",
     "aftersales.exchange",
     "inventory.view",
-    "inventory.scan",
-    "catalog.view", // solo lectura
     "income.own",
   ],
   cajero: [
-    "attendance.mark",
-    "sales.view.all", // necesita buscar venta para cobrar
     "sales.collect",
-    "aftersales.exchange",
-    "inventory.scan",
   ],
   almacen: [
-    "attendance.mark",
     "inventory.view",
     "inventory.entry",
     "inventory.transfer",
