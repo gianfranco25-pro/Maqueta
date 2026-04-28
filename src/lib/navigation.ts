@@ -15,7 +15,7 @@ import {
   Receipt,
   type LucideIcon,
 } from "lucide-react";
-import type { Role } from "./types";
+import { getUserRoles, type Role, type User } from "./types";
 
 export type NavItem = {
   to: string;
@@ -98,6 +98,11 @@ export const sidebarByRole: Record<Role, NavItem[]> = {
   ],
 };
 
+const uniqueNav = (items: NavItem[]) => Array.from(new Map(items.map((item) => [item.to, item])).values());
+
+export const navigationForUser = (user?: Pick<User, "role" | "roles"> | null) =>
+  uniqueNav(getUserRoles(user).flatMap((role) => sidebarByRole[role] || []));
+
 // Acción principal para FAB / bottom nav central por rol
 export const primaryActionByRole: Record<Role, NavItem> = {
   admin: allNav.scan,
@@ -107,6 +112,15 @@ export const primaryActionByRole: Record<Role, NavItem> = {
   administrativo: allNav.reports,
 };
 
+export const primaryActionForUser = (user?: Pick<User, "role" | "roles"> | null) => {
+  const roles = getUserRoles(user);
+  if (roles.includes("vendedor")) return allNav.newSale;
+  if (roles.includes("cajero")) return allNav.pendingPayments;
+  if (roles.includes("almacen")) return allNav.scan;
+  if (roles.includes("administrativo")) return allNav.reports;
+  return allNav.scan;
+};
+
 // Bottom nav: 4 items + 1 acción central destacada
 export const bottomNavByRole: Record<Role, NavItem[]> = {
   admin: [allNav.dashboard, allNav.sales, allNav.inventory, allNav.reports],
@@ -114,4 +128,9 @@ export const bottomNavByRole: Record<Role, NavItem[]> = {
   cajero: [allNav.dashboard, allNav.pendingPayments, allNav.sales, allNav.aftersales],
   almacen: [allNav.dashboard, allNav.inventory, allNav.transfers, allNav.faults],
   administrativo: [allNav.dashboard, allNav.reports, allNav.commissions, allNav.authorizations],
+};
+
+export const bottomNavForUser = (user?: Pick<User, "role" | "roles"> | null) => {
+  const items = uniqueNav(getUserRoles(user).flatMap((role) => bottomNavByRole[role] || []));
+  return items.slice(0, 4);
 };
