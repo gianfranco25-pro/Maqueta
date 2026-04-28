@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/AppShell";
-import { useAppStore, useCurrentUser } from "@/lib/store";
+import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,6 @@ export default function Settings() {
   const settings = useAppStore((s) => s.settings);
   const update = useAppStore((s) => s.updateSettings);
   const reset = useAppStore((s) => s.resetData);
-  useCurrentUser();
   const canManageSettings = useCan("settings.system");
   const [form, setForm] = useState(settings);
 
