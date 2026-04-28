@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { PageHeader } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAppStore, useCurrentUser } from "@/lib/store";
 import { Camera, MapPin, RotateCw, Check, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +17,7 @@ import { useCan } from "@/components/Can";
 
 export default function Attendance() {
   const user = useCurrentUser();
+  const users = useAppStore((s) => s.users);
   const locations = useAppStore((s) => s.locations);
   const attendance = useAppStore((s) => s.attendance);
   const addAttendance = useAppStore((s) => s.addAttendance);
@@ -134,7 +136,7 @@ export default function Attendance() {
                 <SelectTrigger><SelectValue placeholder="Usuario" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos los usuarios</SelectItem>
-                  {useAppStore.getState().users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                  {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} />
