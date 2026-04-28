@@ -1,14 +1,14 @@
 import { NavLink } from "@/components/NavLink";
 import { Brand } from "@/components/Brand";
 import { useCurrentUser } from "@/lib/store";
-import { sidebarByRole } from "@/lib/navigation";
+import { navigationForUser } from "@/lib/navigation";
 import { LogOut } from "lucide-react";
-import { ROLE_LABELS } from "@/lib/types";
+import { formatUserRoles } from "@/lib/types";
 
 export function DesktopSidebar() {
   const user = useCurrentUser();
   if (!user) return null;
-  const items = sidebarByRole[user.role];
+  const items = navigationForUser(user);
 
   return (
     <aside className="hidden lg:flex flex-col w-64 shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
@@ -45,7 +45,7 @@ export function DesktopSidebar() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium truncate">{user.name}</p>
-            <p className="text-xs text-sidebar-foreground/60 truncate">{ROLE_LABELS[user.role]}</p>
+            <p className="text-xs text-sidebar-foreground/60 truncate">{formatUserRoles(user)}</p>
           </div>
           <button className="text-sidebar-foreground/50 hover:text-sidebar-foreground" title="Sesión simulada">
             <LogOut className="size-4" />
