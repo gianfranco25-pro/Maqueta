@@ -30,7 +30,7 @@ export default function InventoryDeliveries() {
     if (!user) return;
     if (codes.length === 0 || !received) return toast.error("Indica códigos y quién recibe");
     try {
-      deliver(codes, user.id, user.name, received);
+      deliver(codes, user.id, user.name, user.role, received);
       toast.success("Entrega registrada");
       setCodes([]);
       setReceived("");
@@ -68,7 +68,7 @@ export default function InventoryDeliveries() {
               {movements.map((mv) => (
                 <li key={mv.id} className="px-4 py-3 text-sm">
                   <p className="font-mono text-xs">{mv.unitCodes.join(", ")}</p>
-                  <p className="text-xs text-muted-foreground">{mv.byUserName} → {mv.receivedBy} · {fmtDateTime(mv.timestamp)}</p>
+                  <p className="text-xs text-muted-foreground">{mv.byUserName}{mv.byUserRole ? ` (${mv.byUserRole})` : ""} → {mv.receivedBy} · {fmtDateTime(mv.timestamp)}</p>
                 </li>
               ))}
             </ul>
