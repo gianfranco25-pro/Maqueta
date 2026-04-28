@@ -196,6 +196,7 @@ export const useAppStore = create<State & Actions>()(
           toLocationId: locationId,
           byUserId: get().currentUserId,
           byUserName: get().users.find((u) => u.id === get().currentUserId)?.name || "—",
+          byUserRole: get().users.find((u) => u.id === get().currentUserId)?.role,
           timestamp: t,
         };
         set({ inventory: [...get().inventory, ...items], counters: c, movements: [mv, ...get().movements] });
@@ -219,6 +220,7 @@ export const useAppStore = create<State & Actions>()(
           toLocationId: locationId,
           byUserId: get().currentUserId,
           byUserName: get().users.find((u) => u.id === get().currentUserId)?.name || "—",
+          byUserRole: get().users.find((u) => u.id === get().currentUserId)?.role,
           timestamp: t,
         };
         set({ inventory: [...get().inventory, ...newItems], counters: c, movements: [mv, ...get().movements] });
@@ -332,6 +334,7 @@ export const useAppStore = create<State & Actions>()(
           ...sale,
           id: `s-${Date.now()}`,
           code,
+          sellerRole: get().users.find((u) => u.id === sale.sellerId)?.role,
           status: "pendiente_cobro",
           timestamp: new Date().toISOString(),
         };
@@ -390,6 +393,7 @@ export const useAppStore = create<State & Actions>()(
           unitCodes: Array.from(soldUnitCodes),
           byUserId: sale.sellerId,
           byUserName: sale.sellerName,
+          byUserRole: sale.sellerRole,
           timestamp: new Date().toISOString(),
         };
         set({
