@@ -19,7 +19,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/StatusBadge";
-import { ROLE_LABELS, type Role } from "@/lib/types";
+import { formatUserRoles, getUserRoles, ROLE_LABELS, type Role } from "@/lib/types";
 import { Plus, Power, MapPin, Phone, IdCard } from "lucide-react";
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/format";
@@ -41,11 +41,12 @@ export default function Users() {
     dni: "",
     phone: "",
     role: "vendedor" as Role,
+    roles: ["vendedor"] as Role[],
     locationId: locations[0]?.id || "",
     active: true,
   });
 
-  const isAdmin = user?.role === "admin";
+  const isAdmin = getUserRoles(user).includes("admin");
 
   if (!isAdmin) {
     return (
@@ -60,7 +61,7 @@ export default function Users() {
 
   const openNew = () => {
     setEditingId(null);
-    setForm({ name: "", dni: "", phone: "", role: "vendedor", locationId: locations[0]?.id || "", active: true });
+    setForm({ name: "", dni: "", phone: "", role: "vendedor", roles: ["vendedor"], locationId: locations[0]?.id || "", active: true });
     setOpen(true);
   };
 
@@ -68,7 +69,7 @@ export default function Users() {
     const u = users.find((x) => x.id === id);
     if (!u) return;
     setEditingId(id);
-    setForm({ name: u.name, dni: u.dni || "", phone: u.phone || "", role: u.role, locationId: u.locationId, active: u.active });
+    setForm({ name: u.name, dni: u.dni || "", phone: u.phone || "", role: u.role, roles: getUserRoles(u), locationId: u.locationId, active: u.active });
     setOpen(true);
   };
 
@@ -78,10 +79,10 @@ export default function Users() {
       return;
     }
     if (editingId) {
-      updateUser(editingId, form);
+      updateUser(editingId, { ...form, role: form.roles[0], roles: form.roles });
       toast.success("Usuario actualizado");
     } else {
-      addUser(form);
+      addUser({ ...form, role: form.roles[0], roles: form.roles });
       toast.success("Usuario creado");
     }
     setOpen(false);
@@ -117,7 +118,7 @@ export default function Users() {
                       <StatusBadge kind="muted">Inactivo</StatusBadge>
                     )}
                   </div>
-                  <p className="text-xs uppercase tracking-wider text-accent font-bold mt-0.5">{ROLE_LABELS[u.role]}</p>
+                  <p className="text-xs uppercase tracking-wider text-accent font-bold mt-0.5">{formatUserRoles(u)}</p>
                   <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                     <p className="flex items-center gap-1.5"><MapPin className="size-3" />{loc?.name}</p>
                     {u.dni && <p className="flex items-center gap-1.5"><IdCard className="size-3" />DNI {u.dni}</p>}
@@ -159,10 +160,14 @@ export default function Users() {
             </div>
             <div>
               <Label>Rol</Label>
-              <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as Role })}>
+              <Select value={form.roles.join("+")} onValueChange={(v) => {
+                const roles = v.split("+") as Role[];
+                setForm({ ...form, role: roles[0], roles });
+              }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {ROLES.map((r) => <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>)}
+                  <SelectItem value="vendedor+almacen">Vendedor + Almacén</SelectItem>
                 </SelectContent>
               </Select>
             </div>
