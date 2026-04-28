@@ -14,6 +14,7 @@ import {
 import { isPairCode, QRScanner } from "@/components/QRScanner";
 import { toast } from "sonner";
 import { fmtDateTime } from "@/lib/format";
+import { operationalRoleFor } from "@/lib/types";
 
 export default function InventoryTransfers() {
   const inventory = useAppStore((s) => s.inventory);
@@ -40,7 +41,7 @@ export default function InventoryTransfers() {
     if (!user) return;
     if (codes.length === 0) return toast.error("Agrega al menos un código");
     try {
-      transfer(codes, toLoc, user.id, user.name, user.role, received || undefined);
+      transfer(codes, toLoc, user.id, user.name, operationalRoleFor(user, "almacen"), received || undefined);
       toast.success("Traslado registrado");
       setCodes([]);
       setReceived("");
