@@ -73,7 +73,6 @@ const ALL: Capability[] = [
 export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
   admin: ALL,
   vendedor: [
-    "sales.view.own",
     "sales.create",
     "aftersales.exchange",
     "inventory.view",
