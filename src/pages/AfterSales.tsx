@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { fmtDateTime, fmtMoney } from "@/lib/format";
 import { toast } from "sonner";
 import { getProductPrices } from "@/lib/pricing";
+import { operationalRoleFor } from "@/lib/types";
 import {
   Tabs,
   TabsList,
@@ -75,7 +76,7 @@ export default function AfterSales() {
     if (!user) return;
     if (!selectedSale || !oldUnit || !newUnit) return toast.error("Selecciona la venta, el producto devuelto y el nuevo producto");
     try {
-      exchange(selectedSale, oldUnit, newUnit, difference, user.id, user.name, user.role, reason || "Cambio de producto");
+      exchange(selectedSale, oldUnit, newUnit, difference, user.id, user.name, operationalRoleFor(user, "vendedor"), reason || "Cambio de producto");
       toast.success("Cambio registrado");
       setSelectedSale("");
       setOldUnit("");
@@ -89,7 +90,7 @@ export default function AfterSales() {
   const submitWrong = () => {
     if (!user) return;
     if (!selectedSale) return toast.error("Selecciona venta");
-    wrong(selectedSale, reason || "Compra por error", user.id, user.name, user.role);
+    wrong(selectedSale, reason || "Compra por error", user.id, user.name, operationalRoleFor(user, "admin"));
     toast.success("Compra por error registrada");
     setSelectedSale(""); setReason("");
   };
