@@ -222,7 +222,7 @@ export const useAppStore = create<State & Actions>()(
           toLocationId: locationId,
           byUserId: get().currentUserId,
           byUserName: get().users.find((u) => u.id === get().currentUserId)?.name || "—",
-          byUserRole: get().users.find((u) => u.id === get().currentUserId)?.role,
+          byUserRole: operationalRoleFor(get().users.find((u) => u.id === get().currentUserId), "almacen"),
           timestamp: t,
         };
         set({ inventory: [...get().inventory, ...items], counters: c, movements: [mv, ...get().movements] });
@@ -246,7 +246,7 @@ export const useAppStore = create<State & Actions>()(
           toLocationId: locationId,
           byUserId: get().currentUserId,
           byUserName: get().users.find((u) => u.id === get().currentUserId)?.name || "—",
-          byUserRole: get().users.find((u) => u.id === get().currentUserId)?.role,
+          byUserRole: operationalRoleFor(get().users.find((u) => u.id === get().currentUserId), "almacen"),
           timestamp: t,
         };
         set({ inventory: [...get().inventory, ...newItems], counters: c, movements: [mv, ...get().movements] });
