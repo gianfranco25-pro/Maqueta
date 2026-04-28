@@ -15,6 +15,7 @@ import {
 } from "./mockData";
 import {
   getUserRoles,
+  operationalRoleFor,
   AfterSale,
   AppSettings,
   AttendanceRecord,
@@ -359,7 +360,7 @@ export const useAppStore = create<State & Actions>()(
           ...sale,
           id: `s-${Date.now()}`,
           code,
-          sellerRole: get().users.find((u) => u.id === sale.sellerId)?.role,
+          sellerRole: operationalRoleFor(get().users.find((u) => u.id === sale.sellerId), "vendedor"),
           status: "pendiente_cobro",
           timestamp: new Date().toISOString(),
         };
