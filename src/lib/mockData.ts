@@ -24,6 +24,7 @@ export const initialUsers: User[] = [
   { id: "u-admin", name: "Carla Admin", role: "admin", locationId: "loc-tienda-centro", active: true, createdAt: now(), dni: "70000001", phone: "987000001" },
   { id: "u-vend-1", name: "Luis Vendedor", role: "vendedor", locationId: "loc-tienda-centro", active: true, createdAt: now(), dni: "70000002", phone: "987000002" },
   { id: "u-vend-2", name: "Ana Vendedora", role: "vendedor", locationId: "loc-puesto-mall", active: true, createdAt: now(), dni: "70000003", phone: "987000003" },
+  { id: "u-vend-almacen", name: "Rosa Venta Almacén", role: "vendedor", roles: ["vendedor", "almacen"], locationId: "loc-almacen", active: true, createdAt: now(), dni: "70000007", phone: "987000007" },
   { id: "u-cajero", name: "María Cajera", role: "cajero", locationId: "loc-tienda-centro", active: true, createdAt: now(), dni: "70000004", phone: "987000004" },
   { id: "u-almacen", name: "Pedro Almacén", role: "almacen", locationId: "loc-almacen", active: true, createdAt: now(), dni: "70000005", phone: "987000005" },
   { id: "u-adm", name: "Sofía Administrativo", role: "administrativo", locationId: "loc-tienda-centro", active: true, createdAt: now(), dni: "70000006", phone: "987000006" },
