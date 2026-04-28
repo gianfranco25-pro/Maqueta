@@ -16,6 +16,7 @@ export type Capability =
   | "sales.cancel" // anular venta confirmada
   | "sales.collect" // confirmar cobro
   | "sales.cancelDraft" // anular venta pendiente de cobro
+  | "sales.price.edit" // modificar precio final / descuentos
   // Postventa
   | "aftersales.exchange"
   | "aftersales.wrong" // compra por error
@@ -31,6 +32,7 @@ export type Capability =
   // Catálogo y precios
   | "catalog.view"
   | "catalog.edit"
+  | "catalog.prices.edit"
   // Usuarios
   | "users.manage"
   // Reportes
@@ -50,6 +52,7 @@ const ALL: Capability[] = [
   "sales.cancel",
   "sales.collect",
   "sales.cancelDraft",
+  "sales.price.edit",
   "aftersales.exchange",
   "aftersales.wrong",
   "inventory.view",
@@ -62,6 +65,7 @@ const ALL: Capability[] = [
   "inventory.scan",
   "catalog.view",
   "catalog.edit",
+  "catalog.prices.edit",
   "users.manage",
   "reports.global",
   "income.own",
@@ -74,6 +78,7 @@ export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
   admin: ALL,
   vendedor: [
     "sales.create",
+    "sales.price.edit",
     "aftersales.exchange",
     "inventory.view",
     "income.own",
