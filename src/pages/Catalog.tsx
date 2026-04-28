@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { useAppStore, useCurrentUser } from "@/lib/store";
 import type { ProductType } from "@/lib/types";
+import { useCan } from "@/components/Can";
 import { Plus, Pencil, Settings2 } from "lucide-react";
 import { fmtMoney } from "@/lib/format";
 import { Link } from "react-router-dom";
@@ -25,6 +26,7 @@ import { toast } from "sonner";
 
 export default function Catalog() {
   const user = useCurrentUser();
+  const canEdit = useCan("catalog.edit");
   const products = useAppStore((s) => s.products);
   const inventory = useAppStore((s) => s.inventory);
   const addProduct = useAppStore((s) => s.addProduct);
@@ -44,8 +46,6 @@ export default function Catalog() {
     wholesalePrice: 0,
     active: true,
   });
-
-  const canEdit = user?.role === "admin";
 
   const filtered = products.filter((p) => {
     if (typeFilter !== "todos" && p.type !== typeFilter) return false;
