@@ -74,7 +74,7 @@ export default function AfterSales() {
     if (!user) return;
     if (!selectedSale || !oldUnit || !newUnit) return toast.error("Selecciona la venta, el producto devuelto y el nuevo producto");
     try {
-      exchange(selectedSale, oldUnit, newUnit, difference, user.id, user.name, reason || "Cambio de producto");
+      exchange(selectedSale, oldUnit, newUnit, difference, user.id, user.name, user.role, reason || "Cambio de producto");
       toast.success("Cambio registrado");
       setSelectedSale("");
       setOldUnit("");
@@ -88,7 +88,7 @@ export default function AfterSales() {
   const submitWrong = () => {
     if (!user) return;
     if (!selectedSale) return toast.error("Selecciona venta");
-    wrong(selectedSale, reason || "Compra por error", user.id, user.name);
+    wrong(selectedSale, reason || "Compra por error", user.id, user.name, user.role);
     toast.success("Compra por error registrada");
     setSelectedSale(""); setReason("");
   };
