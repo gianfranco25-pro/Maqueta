@@ -1,6 +1,6 @@
 import { ChevronDown, Check } from "lucide-react";
 import { useAppStore, useCurrentUser } from "@/lib/store";
-import { ROLE_LABELS, type Role } from "@/lib/types";
+import { formatUserRoles, getUserRoles, ROLE_LABELS, type Role } from "@/lib/types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,7 +33,7 @@ export function RoleSwitcher({ compact = false }: { compact?: boolean }) {
         <span className="font-medium hidden sm:inline">{user.name.split(" ")[0]}</span>
         <span className="text-muted-foreground hidden sm:inline">·</span>
         <span className="text-xs uppercase tracking-wide font-semibold text-muted-foreground">
-          {ROLE_LABELS[user.role]}
+          {formatUserRoles(user)}
         </span>
         <ChevronDown className="size-3.5 text-muted-foreground" />
       </DropdownMenuTrigger>
@@ -52,7 +52,7 @@ export function RoleSwitcher({ compact = false }: { compact?: boolean }) {
               <span className={`size-2 rounded-full ${ROLE_DOT[r]}`} />
               {ROLE_LABELS[r]}
             </span>
-            {user.role === r && <Check className="size-4 text-accent" />}
+            {getUserRoles(user).includes(r) && <Check className="size-4 text-accent" />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
