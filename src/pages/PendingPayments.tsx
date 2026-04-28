@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { CheckCircle2, Receipt, XCircle } from "lucide-react";
 import type { PaymentMethod } from "@/lib/types";
+import { operationalRoleFor } from "@/lib/types";
 import { toast } from "sonner";
 
 import { useCan } from "@/components/Can";
@@ -52,7 +53,7 @@ export default function PendingPayments() {
     if (!sale || !user) return;
     if (remaining > 0.001) return toast.error(`Falta ${fmtMoney(remaining)} por cobrar`);
     if (paid - sale.total > 0.001) return toast.error(`Sobra ${fmtMoney(paid - sale.total)} — debe corregirlo el vendedor`);
-    const updated = confirmSalePayment(sale.id, sale.payments, sale.totalSurcharge, sale.total, user.id, user.name, user.role);
+    const updated = confirmSalePayment(sale.id, sale.payments, sale.totalSurcharge, sale.total, user.id, user.name, operationalRoleFor(user, "cajero"));
     if (updated) {
       toast.success(`Venta ${updated.code} cobrada`, { description: fmtMoney(updated.total) });
       setOpenId(null);
