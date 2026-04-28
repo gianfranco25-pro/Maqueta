@@ -99,23 +99,23 @@ type Actions = {
   addShoePair: (productId: string, locationId: string) => { pairCode: string };
   addAccessoryUnits: (productId: string, locationId: string, qty: number) => string[];
   updateItemStatus: (unitCode: string, status: ItemStatus, notes?: string) => void;
-  transferItems: (unitCodes: string[], toLocationId: string, byUserId: string, byUserName: string, receivedBy?: string) => void;
-  deliverFromWarehouse: (unitCodes: string[], byUserId: string, byUserName: string, receivedBy?: string) => void;
+  transferItems: (unitCodes: string[], toLocationId: string, byUserId: string, byUserName: string, byUserRole?: Role, receivedBy?: string) => void;
+  deliverFromWarehouse: (unitCodes: string[], byUserId: string, byUserName: string, byUserRole?: Role, receivedBy?: string) => void;
   markAsSample: (unitCode: string) => void;
-  markAsFault: (unitCode: string, reason: string, byUserId: string, byUserName: string) => void;
+  markAsFault: (unitCode: string, reason: string, byUserId: string, byUserName: string, byUserRole?: Role) => void;
 
   // Settings
   updateSettings: (patch: Partial<AppSettings>) => void;
 
   // Sales
   createDraftSale: (sale: Omit<Sale, "id" | "code" | "timestamp" | "status">) => Sale;
-  confirmSalePayment: (saleId: string, payments: import("./types").PaymentSplit[], totalSurcharge: number, total: number, cashierId: string, cashierName: string) => Sale | undefined;
+  confirmSalePayment: (saleId: string, payments: import("./types").PaymentSplit[], totalSurcharge: number, total: number, cashierId: string, cashierName: string, cashierRole?: Role) => Sale | undefined;
   cancelDraftSale: (saleId: string, reason: string) => void;
-  voidSale: (saleId: string, reason: string, byUserId: string, byUserName: string) => void;
+  voidSale: (saleId: string, reason: string, byUserId: string, byUserName: string, byUserRole?: Role) => void;
 
   // After-sales
-  registerExchange: (saleId: string, oldUnitCode: string, newUnitCode: string, diff: number, byUserId: string, byUserName: string, reason: string) => void;
-  registerWrongPurchase: (saleId: string, reason: string, byUserId: string, byUserName: string) => void;
+  registerExchange: (saleId: string, oldUnitCode: string, newUnitCode: string, diff: number, byUserId: string, byUserName: string, byUserRole: Role | undefined, reason: string) => void;
+  registerWrongPurchase: (saleId: string, reason: string, byUserId: string, byUserName: string, byUserRole?: Role) => void;
 
   // Authorizations
   requestAuthorization: (req: Omit<AuthorizationRequest, "id" | "timestamp" | "status">) => AuthorizationRequest;
