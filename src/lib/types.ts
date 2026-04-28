@@ -23,6 +23,12 @@ export const getUserRoles = (user?: Pick<User, "role" | "roles"> | null): Role[]
 export const formatUserRoles = (user?: Pick<User, "role" | "roles"> | null) =>
   getUserRoles(user).map((role) => ROLE_LABELS[role]).join(" + ");
 
+export const operationalRoleFor = (user: Pick<User, "role" | "roles"> | null | undefined, preferred: Role): Role | undefined => {
+  if (!user) return undefined;
+  const roles = getUserRoles(user);
+  return roles.includes(preferred) ? preferred : roles[0];
+};
+
 export type Location = {
   id: string;
   name: string;
