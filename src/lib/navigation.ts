@@ -13,6 +13,8 @@ import {
   ShieldCheck,
   Wallet,
   Receipt,
+  ArrowDownToLine,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { getUserRoles, type Role, type User } from "./types";
@@ -39,7 +41,10 @@ export const allNav: Record<string, NavItem> = {
   commissions: { to: "/comisiones", label: "Comisiones", icon: Wallet, short: "Comisión" },
   myIncome: { to: "/mis-ingresos", label: "Mis ingresos", icon: Wallet, short: "Mis $" },
   transfers: { to: "/inventario/traslados", label: "Traslados", icon: Truck },
+  deliveries: { to: "/inventario/entregas", label: "Entregas", icon: Package },
+  inventoryEntry: { to: "/inventario/ingreso", label: "Ingreso", icon: ArrowDownToLine },
   faults: { to: "/inventario/fallas", label: "Fallas", icon: AlertTriangle },
+  samples: { to: "/inventario/muestras", label: "Muestras", icon: Sparkles },
   authorizations: { to: "/autorizaciones", label: "Autorizaciones", icon: ShieldCheck },
   saleHistory: { to: "/ventas", label: "Historial venta", icon: Receipt },
 };
@@ -62,29 +67,23 @@ export const sidebarByRole: Record<Role, NavItem[]> = {
   vendedor: [
     allNav.dashboard,
     allNav.newSale,
-    allNav.sales,
-    allNav.scan,
     allNav.inventory,
-    allNav.catalog,
     allNav.aftersales,
     allNav.myIncome,
-    allNav.attendance,
   ],
   cajero: [
     allNav.dashboard,
     allNav.pendingPayments,
-    allNav.sales,
-    allNav.aftersales,
-    allNav.scan,
-    allNav.attendance,
   ],
   almacen: [
     allNav.dashboard,
     allNav.inventory,
+    allNav.inventoryEntry,
     allNav.scan,
     allNav.transfers,
+    allNav.deliveries,
     allNav.faults,
-    allNav.attendance,
+    allNav.samples,
   ],
   administrativo: [
     allNav.dashboard,
@@ -124,8 +123,8 @@ export const primaryActionForUser = (user?: Pick<User, "role" | "roles"> | null)
 // Bottom nav: 4 items + 1 acción central destacada
 export const bottomNavByRole: Record<Role, NavItem[]> = {
   admin: [allNav.dashboard, allNav.sales, allNav.inventory, allNav.reports],
-  vendedor: [allNav.dashboard, allNav.sales, allNav.aftersales, allNav.myIncome],
-  cajero: [allNav.dashboard, allNav.pendingPayments, allNav.sales, allNav.aftersales],
+  vendedor: [allNav.dashboard, allNav.newSale, allNav.inventory, allNav.myIncome],
+  cajero: [allNav.dashboard, allNav.pendingPayments],
   almacen: [allNav.dashboard, allNav.inventory, allNav.transfers, allNav.faults],
   administrativo: [allNav.dashboard, allNav.reports, allNav.commissions, allNav.authorizations],
 };
