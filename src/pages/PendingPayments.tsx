@@ -52,7 +52,7 @@ export default function PendingPayments() {
     if (!sale || !user) return;
     if (remaining > 0.001) return toast.error(`Falta ${fmtMoney(remaining)} por cobrar`);
     if (paid - sale.total > 0.001) return toast.error(`Sobra ${fmtMoney(paid - sale.total)} — debe corregirlo el vendedor`);
-    const updated = confirmSalePayment(sale.id, sale.payments, sale.totalSurcharge, sale.total, user.id, user.name);
+    const updated = confirmSalePayment(sale.id, sale.payments, sale.totalSurcharge, sale.total, user.id, user.name, user.role);
     if (updated) {
       toast.success(`Venta ${updated.code} cobrada`, { description: fmtMoney(updated.total) });
       setOpenId(null);

@@ -1,19 +1,20 @@
 import { PageHeader } from "@/components/AppShell";
-import { useAppStore, useCurrentUser } from "@/lib/store";
+import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useState } from "react";
+import { useCan } from "@/components/Can";
 
 export default function Settings() {
   const settings = useAppStore((s) => s.settings);
   const update = useAppStore((s) => s.updateSettings);
   const reset = useAppStore((s) => s.resetData);
-  const user = useCurrentUser();
+  const canManageSettings = useCan("settings.system");
   const [form, setForm] = useState(settings);
 
-  if (user?.role !== "admin") {
+  if (!canManageSettings) {
     return (
       <>
         <PageHeader title="Configuración" />

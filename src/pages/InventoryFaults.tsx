@@ -22,7 +22,7 @@ export default function InventoryFaults() {
     if (!user) return;
     if (!code || !reason) return toast.error("Indica código y motivo");
     if (!inventory.find((i) => i.unitCode === code.toUpperCase())) return toast.error("Código no existe");
-    markFault(code.toUpperCase(), reason, user.id, user.name);
+    markFault(code.toUpperCase(), reason, user.id, user.name, user.role);
     toast.success("Marcado con falla");
     setCode(""); setReason("");
   };

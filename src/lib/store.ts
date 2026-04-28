@@ -99,23 +99,23 @@ type Actions = {
   addShoePair: (productId: string, locationId: string) => { pairCode: string };
   addAccessoryUnits: (productId: string, locationId: string, qty: number) => string[];
   updateItemStatus: (unitCode: string, status: ItemStatus, notes?: string) => void;
-  transferItems: (unitCodes: string[], toLocationId: string, byUserId: string, byUserName: string, receivedBy?: string) => void;
-  deliverFromWarehouse: (unitCodes: string[], byUserId: string, byUserName: string, receivedBy?: string) => void;
+  transferItems: (unitCodes: string[], toLocationId: string, byUserId: string, byUserName: string, byUserRole?: Role, receivedBy?: string) => void;
+  deliverFromWarehouse: (unitCodes: string[], byUserId: string, byUserName: string, byUserRole?: Role, receivedBy?: string) => void;
   markAsSample: (unitCode: string) => void;
-  markAsFault: (unitCode: string, reason: string, byUserId: string, byUserName: string) => void;
+  markAsFault: (unitCode: string, reason: string, byUserId: string, byUserName: string, byUserRole?: Role) => void;
 
   // Settings
   updateSettings: (patch: Partial<AppSettings>) => void;
 
   // Sales
   createDraftSale: (sale: Omit<Sale, "id" | "code" | "timestamp" | "status">) => Sale;
-  confirmSalePayment: (saleId: string, payments: import("./types").PaymentSplit[], totalSurcharge: number, total: number, cashierId: string, cashierName: string) => Sale | undefined;
+  confirmSalePayment: (saleId: string, payments: import("./types").PaymentSplit[], totalSurcharge: number, total: number, cashierId: string, cashierName: string, cashierRole?: Role) => Sale | undefined;
   cancelDraftSale: (saleId: string, reason: string) => void;
-  voidSale: (saleId: string, reason: string, byUserId: string, byUserName: string) => void;
+  voidSale: (saleId: string, reason: string, byUserId: string, byUserName: string, byUserRole?: Role) => void;
 
   // After-sales
-  registerExchange: (saleId: string, oldUnitCode: string, newUnitCode: string, diff: number, byUserId: string, byUserName: string, reason: string) => void;
-  registerWrongPurchase: (saleId: string, reason: string, byUserId: string, byUserName: string) => void;
+  registerExchange: (saleId: string, oldUnitCode: string, newUnitCode: string, diff: number, byUserId: string, byUserName: string, byUserRole: Role | undefined, reason: string) => void;
+  registerWrongPurchase: (saleId: string, reason: string, byUserId: string, byUserName: string, byUserRole?: Role) => void;
 
   // Authorizations
   requestAuthorization: (req: Omit<AuthorizationRequest, "id" | "timestamp" | "status">) => AuthorizationRequest;
@@ -143,7 +143,7 @@ export const useAppStore = create<State & Actions>()(
 
       setCurrentUser: (id) => set({ currentUserId: id }),
       switchToFirstUserOfRole: (role) => {
-        const u = get().users.find((x) => x.role === role && x.active);
+        const u = get().users.find((x) => (x.roles?.includes(role) || x.role === role) && x.active);
         if (u) set({ currentUserId: u.id });
       },
 
@@ -196,6 +196,7 @@ export const useAppStore = create<State & Actions>()(
           toLocationId: locationId,
           byUserId: get().currentUserId,
           byUserName: get().users.find((u) => u.id === get().currentUserId)?.name || "—",
+          byUserRole: get().users.find((u) => u.id === get().currentUserId)?.role,
           timestamp: t,
         };
         set({ inventory: [...get().inventory, ...items], counters: c, movements: [mv, ...get().movements] });
@@ -219,6 +220,7 @@ export const useAppStore = create<State & Actions>()(
           toLocationId: locationId,
           byUserId: get().currentUserId,
           byUserName: get().users.find((u) => u.id === get().currentUserId)?.name || "—",
+          byUserRole: get().users.find((u) => u.id === get().currentUserId)?.role,
           timestamp: t,
         };
         set({ inventory: [...get().inventory, ...newItems], counters: c, movements: [mv, ...get().movements] });
@@ -232,7 +234,7 @@ export const useAppStore = create<State & Actions>()(
           ),
         }),
 
-      transferItems: (rawCodes, toLocationId, byUserId, byUserName, receivedBy) => {
+      transferItems: (rawCodes, toLocationId, byUserId, byUserName, byUserRole, receivedBy) => {
         const inventory = get().inventory;
         const { unitCodes, items } = getValidatedAvailableItems(rawCodes, inventory);
         const fromLocationId = items[0]?.locationId;
@@ -254,13 +256,14 @@ export const useAppStore = create<State & Actions>()(
           toLocationId,
           byUserId,
           byUserName,
+          byUserRole,
           receivedBy,
           timestamp: new Date().toISOString(),
         };
         set({ inventory: inv, movements: [mv, ...get().movements] });
       },
 
-      deliverFromWarehouse: (rawCodes, byUserId, byUserName, receivedBy) => {
+      deliverFromWarehouse: (rawCodes, byUserId, byUserName, byUserRole, receivedBy) => {
         const inventory = get().inventory;
         const warehouseIds = get().locations.filter((l) => l.type === "almacen").map((l) => l.id);
         const receiver = get().users.find((u) => u.active && u.name.toLowerCase() === (receivedBy || "").trim().toLowerCase());
@@ -290,6 +293,7 @@ export const useAppStore = create<State & Actions>()(
           toLocationId,
           byUserId,
           byUserName,
+          byUserRole,
           receivedBy: receiver.name,
           timestamp: new Date().toISOString(),
         };
@@ -301,13 +305,14 @@ export const useAppStore = create<State & Actions>()(
           inventory: get().inventory.map((i) => (i.unitCode === unitCode ? { ...i, status: "muestra" } : i)),
         }),
 
-      markAsFault: (unitCode, reason, byUserId, byUserName) => {
+      markAsFault: (unitCode, reason, byUserId, byUserName, byUserRole) => {
         const mv: Movement = {
           id: `mv-${Date.now()}`,
           type: "falla",
           unitCodes: [unitCode],
           byUserId,
           byUserName,
+          byUserRole,
           reason,
           timestamp: new Date().toISOString(),
         };
@@ -329,6 +334,7 @@ export const useAppStore = create<State & Actions>()(
           ...sale,
           id: `s-${Date.now()}`,
           code,
+          sellerRole: get().users.find((u) => u.id === sale.sellerId)?.role,
           status: "pendiente_cobro",
           timestamp: new Date().toISOString(),
         };
@@ -353,7 +359,7 @@ export const useAppStore = create<State & Actions>()(
         return fullSale;
       },
 
-      confirmSalePayment: (saleId, payments, totalSurcharge, total, cashierId, cashierName) => {
+      confirmSalePayment: (saleId, payments, totalSurcharge, total, cashierId, cashierName, cashierRole) => {
         const sale = get().sales.find((s) => s.id === saleId);
         if (!sale || sale.status !== "pendiente_cobro") return;
         const soldUnitCodes = new Set<string>();
@@ -377,7 +383,9 @@ export const useAppStore = create<State & Actions>()(
           paidAt: new Date().toISOString(),
           paidByCashierId: cashierId,
           paidByCashierName: cashierName,
+          paidByCashierRole: cashierRole,
           cashierId,
+          cashierRole,
         };
         const mv: Movement = {
           id: `mv-${Date.now()}`,
@@ -385,6 +393,7 @@ export const useAppStore = create<State & Actions>()(
           unitCodes: Array.from(soldUnitCodes),
           byUserId: sale.sellerId,
           byUserName: sale.sellerName,
+          byUserRole: sale.sellerRole,
           timestamp: new Date().toISOString(),
         };
         set({
@@ -414,7 +423,7 @@ export const useAppStore = create<State & Actions>()(
         set({ sales: updated, inventory: inv });
       },
 
-      voidSale: (saleId, reason, byUserId, byUserName) => {
+      voidSale: (saleId, reason, byUserId, byUserName, byUserRole) => {
         const sale = get().sales.find((s) => s.id === saleId);
         if (!sale) return;
         // Devolver items al stock
@@ -438,13 +447,14 @@ export const useAppStore = create<State & Actions>()(
           saleCode: sale.code,
           byUserId,
           byUserName,
+          byUserRole,
           reason,
           timestamp: new Date().toISOString(),
         };
         set({ sales: updated, inventory: inv, afterSales: [after, ...get().afterSales] });
       },
 
-      registerExchange: (saleId, oldUnitCode, newUnitCode, _diff, byUserId, byUserName, reason) => {
+      registerExchange: (saleId, oldUnitCode, newUnitCode, _diff, byUserId, byUserName, byUserRole, reason) => {
         const sale = get().sales.find((s) => s.id === saleId);
         if (!sale || sale.status !== "confirmada") throw new Error("Selecciona una venta confirmada");
         const oldLine = sale.lines.find((l) => l.unitCode === oldUnitCode);
@@ -467,6 +477,7 @@ export const useAppStore = create<State & Actions>()(
           saleCode: sale.code,
           byUserId,
           byUserName,
+          byUserRole,
           reason: `${reason} | ${oldUnitCode} → ${newUnitCode}`,
           diff,
           timestamp: new Date().toISOString(),
@@ -479,7 +490,7 @@ export const useAppStore = create<State & Actions>()(
         set({ afterSales: [after, ...get().afterSales], inventory: inv });
       },
 
-      registerWrongPurchase: (saleId, reason, byUserId, byUserName) => {
+      registerWrongPurchase: (saleId, reason, byUserId, byUserName, byUserRole) => {
         const sale = get().sales.find((s) => s.id === saleId);
         if (!sale) return;
         const after: AfterSale = {
@@ -489,6 +500,7 @@ export const useAppStore = create<State & Actions>()(
           saleCode: sale.code,
           byUserId,
           byUserName,
+          byUserRole,
           reason,
           timestamp: new Date().toISOString(),
         };

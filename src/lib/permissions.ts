@@ -1,4 +1,4 @@
-import type { Role } from "./types";
+import { getUserRoles, type Role, type User } from "./types";
 
 /**
  * Matriz central de permisos por rol.
@@ -73,24 +73,15 @@ const ALL: Capability[] = [
 export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
   admin: ALL,
   vendedor: [
-    "attendance.mark",
-    "sales.view.own",
     "sales.create",
     "aftersales.exchange",
     "inventory.view",
-    "inventory.scan",
-    "catalog.view", // solo lectura
     "income.own",
   ],
   cajero: [
-    "attendance.mark",
-    "sales.view.all", // necesita buscar venta para cobrar
     "sales.collect",
-    "aftersales.exchange",
-    "inventory.scan",
   ],
   almacen: [
-    "attendance.mark",
     "inventory.view",
     "inventory.entry",
     "inventory.transfer",
@@ -111,13 +102,17 @@ export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
   ],
 };
 
-export function can(role: Role | undefined, cap: Capability): boolean {
-  if (!role) return false;
-  return ROLE_CAPABILITIES[role].includes(cap);
+export function can(userOrRole: Role | Pick<User, "role" | "roles"> | undefined, cap: Capability): boolean {
+  const roles = typeof userOrRole === "string" ? [userOrRole] : getUserRoles(userOrRole);
+  return roles.some((role) => ROLE_CAPABILITIES[role].includes(cap));
+}
+
+export function canAny(userOrRole: Role | Pick<User, "role" | "roles"> | undefined, caps: Capability[]): boolean {
+  return caps.some((cap) => can(userOrRole, cap));
 }
 
 /** Mapa ruta → capability mínima requerida. Si el usuario no la tiene, se redirige. */
-export const ROUTE_CAPABILITIES: Record<string, Capability> = {
+export const ROUTE_CAPABILITIES: Record<string, Capability | Capability[]> = {
   "/usuarios": "users.manage",
   "/asistencia": "attendance.mark",
   "/catalogo": "catalog.view",
@@ -128,7 +123,7 @@ export const ROUTE_CAPABILITIES: Record<string, Capability> = {
   "/inventario/fallas": "inventory.fault",
   "/inventario/muestras": "inventory.sample",
   "/escanear": "inventory.scan",
-  "/ventas": "sales.view.own", // vendedor ve solo las suyas (filtrado en página)
+  "/ventas": ["sales.view.own", "sales.view.all"], // vendedor ve solo las suyas (filtrado en página)
   "/ventas/nueva": "sales.create",
   "/ventas/por-cobrar": "sales.collect",
   "/postventa": "aftersales.exchange",

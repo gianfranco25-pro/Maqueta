@@ -4,12 +4,13 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { fmtDateTime, fmtMoney } from "@/lib/format";
 import { toast } from "sonner";
+import { useCan } from "@/components/Can";
 
 export default function Authorizations() {
   const auths = useAppStore((s) => s.authorizations);
   const resolve = useAppStore((s) => s.resolveAuthorization);
   const user = useCurrentUser();
-  const isAdmin = user?.role === "admin";
+  const canReview = useCan("auth.review");
 
   return (
     <>
@@ -29,7 +30,7 @@ export default function Authorizations() {
                 <div className="flex items-center gap-2">
                   {a.amount !== undefined && <span className="font-display font-bold">{fmtMoney(a.amount)}</span>}
                   <StatusBadge kind={a.status} />
-                  {a.status === "pendiente" && isAdmin && (
+                  {a.status === "pendiente" && canReview && (
                     <>
                       <Button size="sm" variant="outline" onClick={() => { resolve(a.id, false, user!.id); toast.error("Rechazada"); }}>Rechazar</Button>
                       <Button size="sm" className="bg-foreground text-background hover:bg-foreground/90" onClick={() => { resolve(a.id, true, user!.id); toast.success("Aprobada"); }}>Aprobar</Button>

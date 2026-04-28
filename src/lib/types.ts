@@ -15,6 +15,14 @@ export const ROLE_LABELS: Record<Role, string> = {
   administrativo: "Administrativo",
 };
 
+export const getUserRoles = (user?: Pick<User, "role" | "roles"> | null): Role[] => {
+  if (!user) return [];
+  return Array.from(new Set(user.roles?.length ? user.roles : [user.role]));
+};
+
+export const formatUserRoles = (user?: Pick<User, "role" | "roles"> | null) =>
+  getUserRoles(user).map((role) => ROLE_LABELS[role]).join(" + ");
+
 export type Location = {
   id: string;
   name: string;
@@ -27,6 +35,7 @@ export type User = {
   dni?: string;
   phone?: string;
   role: Role;
+  roles?: Role[];
   locationId: string;
   active: boolean;
   createdAt: string;
@@ -99,6 +108,7 @@ export type Movement = {
   toLocationId?: string;
   byUserId: string;
   byUserName: string;
+  byUserRole?: Role;
   receivedBy?: string; // nombre libre, "otros"
   reason?: string;
   timestamp: string;
@@ -127,7 +137,9 @@ export type Sale = {
   code: string; // V-0001
   sellerId: string;
   sellerName: string;
+  sellerRole?: Role;
   cashierId?: string;
+  cashierRole?: Role;
   locationId: string;
   customerPhone?: string;
   lines: SaleLine[];
@@ -142,6 +154,7 @@ export type Sale = {
   paidAt?: string; // confirmación de cobro
   paidByCashierId?: string;
   paidByCashierName?: string;
+  paidByCashierRole?: Role;
 };
 
 export type AfterSale = {
@@ -151,6 +164,7 @@ export type AfterSale = {
   saleCode: string;
   byUserId: string;
   byUserName: string;
+  byUserRole?: Role;
   reason: string;
   diff?: number; // diferencia de precio en cambios
   timestamp: string;

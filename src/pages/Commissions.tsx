@@ -3,13 +3,14 @@ import { useAppStore } from "@/lib/store";
 import { StatCard } from "@/components/StatCard";
 import { fmtMoney } from "@/lib/format";
 import { Wallet, Package, TrendingUp } from "lucide-react";
+import { getUserRoles } from "@/lib/types";
 
 export default function Commissions() {
   const sales = useAppStore((s) => s.sales);
   const users = useAppStore((s) => s.users);
   const settings = useAppStore((s) => s.settings);
 
-  const sellers = users.filter((u) => u.role === "vendedor");
+  const sellers = users.filter((u) => getUserRoles(u).includes("vendedor"));
 
   const rows = sellers.map((u) => {
     const mine = sales.filter((s) => s.sellerId === u.id && s.status === "confirmada");
