@@ -12,18 +12,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { fmtDateTime } from "@/lib/format";
+import { useCan } from "@/components/Can";
 
 export default function Attendance() {
   const user = useCurrentUser();
   const locations = useAppStore((s) => s.locations);
   const attendance = useAppStore((s) => s.attendance);
   const addAttendance = useAppStore((s) => s.addAttendance);
+  const canViewAllSales = useCan("sales.view.all");
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [photo, setPhoto] = useState<string | null>(null);
   const [locationId, setLocationId] = useState(user?.locationId || locations[0]?.id || "");
 
-  const isAdmin = user?.role === "admin" || user?.role === "administrativo";
+  const isAdmin = canViewAllSales;
   const records = isAdmin ? attendance : attendance.filter((a) => a.userId === user?.id);
 
   const handleFile = (file?: File) => {
