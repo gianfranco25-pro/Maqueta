@@ -16,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Receipt } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { operationalRoleFor } from "@/lib/types";
 
 type Filter = "todas" | "pendiente_cobro" | "confirmada" | "anulada";
 
@@ -142,7 +143,7 @@ export default function Sales() {
                     className="w-full"
                     onClick={() => {
                       if (!voidReason.trim()) return toast.error("Indica un motivo");
-                      voidSale(sale.id, voidReason, user!.id, user!.name, user!.role);
+                      voidSale(sale.id, voidReason, user!.id, user!.name, operationalRoleFor(user, "admin"));
                       toast.success("Venta anulada");
                       setOpen(null);
                       setVoidReason("");

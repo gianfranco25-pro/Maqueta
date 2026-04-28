@@ -23,6 +23,12 @@ export const getUserRoles = (user?: Pick<User, "role" | "roles"> | null): Role[]
 export const formatUserRoles = (user?: Pick<User, "role" | "roles"> | null) =>
   getUserRoles(user).map((role) => ROLE_LABELS[role]).join(" + ");
 
+export const operationalRoleFor = (user: Pick<User, "role" | "roles"> | null | undefined, preferred: Role): Role | undefined => {
+  if (!user) return undefined;
+  const roles = getUserRoles(user);
+  return roles.includes(preferred) ? preferred : roles[0];
+};
+
 export type Location = {
   id: string;
   name: string;
@@ -53,6 +59,18 @@ export type AttendanceRecord = {
 
 export type ProductType = "zapato" | "accesorio";
 
+export type PriceMode = "base" | "talla_exacta" | "rango_tallas";
+
+export type SizePriceRule = {
+  id: string;
+  label: string;
+  minSize?: number;
+  maxSize?: number;
+  size?: string;
+  basePrice: number;
+  wholesalePrice: number;
+};
+
 export type Product = {
   id: string;
   type: ProductType;
@@ -62,6 +80,8 @@ export type Product = {
   size?: string; // talla, solo zapatos
   basePrice: number;
   wholesalePrice: number;
+  priceMode?: PriceMode;
+  sizePrices?: SizePriceRule[];
   active: boolean;
   createdAt: string;
 };

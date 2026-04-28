@@ -16,6 +16,7 @@ import { ScanLine, Trash2, Plus, ShieldAlert, Send, CreditCard, ArrowLeftRight }
 import type { PaymentMethod, PaymentSplit, SaleLine } from "@/lib/types";
 import { fmtMoney } from "@/lib/format";
 import { toast } from "sonner";
+import { getProductPrices } from "@/lib/pricing";
 
 export default function NewSale() {
   const navigate = useNavigate();
@@ -58,14 +59,15 @@ export default function NewSale() {
       }
       const product = products.find((p) => p.id === d.productId);
       if (!product) return;
+      const prices = getProductPrices(product);
       setLines([
         ...lines,
         {
           productId: product.id,
           productLabel: `${product.brand} · ${product.model}${product.size ? ` T${product.size}` : ""}`,
           unitCode,
-          basePrice: product.basePrice,
-          finalPrice: product.basePrice,
+          basePrice: prices.basePrice,
+          finalPrice: prices.basePrice,
           discount: 0,
           isPair: true,
         },
@@ -75,14 +77,15 @@ export default function NewSale() {
       if (!it) return toast.error("Unidad no disponible");
       const product = products.find((p) => p.id === it.productId);
       if (!product) return;
+      const prices = getProductPrices(product);
       setLines([
         ...lines,
         {
           productId: product.id,
           productLabel: `${product.brand} · ${product.model}`,
           unitCode,
-          basePrice: product.basePrice,
-          finalPrice: product.basePrice,
+          basePrice: prices.basePrice,
+          finalPrice: prices.basePrice,
           discount: 0,
           isPair: false,
         },
@@ -200,7 +203,7 @@ export default function NewSale() {
                   <li key={r.product.id} className="flex items-center justify-between px-3 py-2">
                     <div>
                       <p className="font-medium text-sm">{r.product.brand} · {r.product.model}</p>
-                      <p className="text-xs text-muted-foreground">{r.product.color}{r.product.size ? ` · T${r.product.size}` : ""} · {fmtMoney(r.product.basePrice)}</p>
+                      <p className="text-xs text-muted-foreground">{r.product.color}{r.product.size ? ` · T${r.product.size}` : ""} · {fmtMoney(getProductPrices(r.product).basePrice)}</p>
                     </div>
                     <Button
                       size="sm"

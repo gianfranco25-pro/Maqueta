@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { isPairCode, QRScanner } from "@/components/QRScanner";
 import { toast } from "sonner";
 import { fmtDateTime } from "@/lib/format";
+import { operationalRoleFor } from "@/lib/types";
 
 export default function InventoryDeliveries() {
   const inventory = useAppStore((s) => s.inventory);
@@ -30,7 +31,7 @@ export default function InventoryDeliveries() {
     if (!user) return;
     if (codes.length === 0 || !received) return toast.error("Indica códigos y quién recibe");
     try {
-      deliver(codes, user.id, user.name, user.role, received);
+      deliver(codes, user.id, user.name, operationalRoleFor(user, "almacen"), received);
       toast.success("Entrega registrada");
       setCodes([]);
       setReceived("");

@@ -31,9 +31,15 @@ export const initialUsers: User[] = [
 ];
 
 export const initialProducts: Product[] = [
-  { id: "p-1", type: "zapato", brand: "Bruno Magli", model: "Oxford Classic", color: "Negro", size: "41", basePrice: 320, wholesalePrice: 260, active: true, createdAt: now() },
-  { id: "p-2", type: "zapato", brand: "Aldo", model: "Derby Premium", color: "Marrón", size: "42", basePrice: 280, wholesalePrice: 230, active: true, createdAt: now() },
-  { id: "p-3", type: "zapato", brand: "Renzo Costa", model: "Mocasín Italia", color: "Café", size: "40", basePrice: 350, wholesalePrice: 290, active: true, createdAt: now() },
+  { id: "p-1", type: "zapato", brand: "Bruno Magli", model: "Oxford Classic", color: "Negro", size: "41", basePrice: 320, wholesalePrice: 260, priceMode: "rango_tallas", sizePrices: [
+    { id: "sp-1a", label: "Tallas 38-40", minSize: 38, maxSize: 40, basePrice: 300, wholesalePrice: 245 },
+    { id: "sp-1b", label: "Tallas 41-43", minSize: 41, maxSize: 43, basePrice: 320, wholesalePrice: 260 },
+  ], active: true, createdAt: now() },
+  { id: "p-2", type: "zapato", brand: "Aldo", model: "Derby Premium", color: "Marrón", size: "42", basePrice: 280, wholesalePrice: 230, priceMode: "talla_exacta", sizePrices: [
+    { id: "sp-2a", label: "Talla 41", size: "41", basePrice: 270, wholesalePrice: 220 },
+    { id: "sp-2b", label: "Talla 42", size: "42", basePrice: 280, wholesalePrice: 230 },
+  ], active: true, createdAt: now() },
+  { id: "p-3", type: "zapato", brand: "Renzo Costa", model: "Mocasín Italia", color: "Café", size: "40", basePrice: 350, wholesalePrice: 290, priceMode: "base", active: true, createdAt: now() },
   { id: "p-4", type: "accesorio", brand: "Renzo Costa", model: "Correa cuero clásica", color: "Negro", basePrice: 90, wholesalePrice: 65, active: true, createdAt: now() },
   { id: "p-5", type: "accesorio", brand: "Punto Blanco", model: "Medias de vestir", color: "Negro", basePrice: 25, wholesalePrice: 18, active: true, createdAt: now() },
 ];

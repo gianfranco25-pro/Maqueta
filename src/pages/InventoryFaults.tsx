@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { QRScanner } from "@/components/QRScanner";
 import { StatusBadge } from "@/components/StatusBadge";
 import { toast } from "sonner";
+import { operationalRoleFor } from "@/lib/types";
 
 export default function InventoryFaults() {
   const inventory = useAppStore((s) => s.inventory);
@@ -22,7 +23,7 @@ export default function InventoryFaults() {
     if (!user) return;
     if (!code || !reason) return toast.error("Indica código y motivo");
     if (!inventory.find((i) => i.unitCode === code.toUpperCase())) return toast.error("Código no existe");
-    markFault(code.toUpperCase(), reason, user.id, user.name, user.role);
+    markFault(code.toUpperCase(), reason, user.id, user.name, operationalRoleFor(user, "almacen"));
     toast.success("Marcado con falla");
     setCode(""); setReason("");
   };

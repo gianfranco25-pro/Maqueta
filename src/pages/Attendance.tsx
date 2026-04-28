@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { PageHeader } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAppStore, useCurrentUser } from "@/lib/store";
 import { Camera, MapPin, RotateCw, Check, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -16,17 +17,29 @@ import { useCan } from "@/components/Can";
 
 export default function Attendance() {
   const user = useCurrentUser();
+  const users = useAppStore((s) => s.users);
   const locations = useAppStore((s) => s.locations);
   const attendance = useAppStore((s) => s.attendance);
   const addAttendance = useAppStore((s) => s.addAttendance);
-  const canViewAllSales = useCan("sales.view.all");
+  const canManageUsers = useCan("users.manage");
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [photo, setPhoto] = useState<string | null>(null);
-  const [locationId, setLocationId] = useState(user?.locationId || locations[0]?.id || "");
+  const [userFilter, setUserFilter] = useState("todos");
+  const [dateFilter, setDateFilter] = useState("");
+  const [locationFilter, setLocationFilter] = useState("todos");
 
-  const isAdmin = canViewAllSales;
-  const records = isAdmin ? attendance : attendance.filter((a) => a.userId === user?.id);
+  const assignedLocation = locations.find((l) => l.id === user?.locationId);
+  const isAdmin = canManageUsers;
+  const records = (isAdmin ? attendance : attendance.filter((a) => a.userId === user?.id)).filter((record) => {
+    if (isAdmin && userFilter !== "todos" && record.userId !== userFilter) return false;
+    if (isAdmin && locationFilter !== "todos" && record.locationId !== locationFilter) return false;
+    if (isAdmin && dateFilter && record.timestamp.slice(0, 10) !== dateFilter) return false;
+    return true;
+  });
+  const markedToday = attendance.some((record) =>
+    record.userId === user?.id && record.timestamp.slice(0, 10) === new Date().toISOString().slice(0, 10)
+  );
 
   const handleFile = (file?: File) => {
     if (!file) return;
@@ -41,17 +54,20 @@ export default function Attendance() {
       toast.error("Toma una foto antes de marcar");
       return;
     }
-    const loc = locations.find((l) => l.id === locationId);
-    addAttendance({
-      userId: user.id,
-      userName: user.name,
-      locationId,
-      locationName: loc?.name || "—",
-      photoDataUrl: photo,
-    });
-    toast.success("Asistencia registrada", { description: `${user.name} · ${loc?.name}` });
-    setPhoto(null);
-    if (fileRef.current) fileRef.current.value = "";
+    try {
+      addAttendance({
+        userId: user.id,
+        userName: user.name,
+        locationId: user.locationId,
+        locationName: assignedLocation?.name || "—",
+        photoDataUrl: photo,
+      });
+      toast.success("Asistencia registrada", { description: `${user.name} · ${assignedLocation?.name}` });
+      setPhoto(null);
+      if (fileRef.current) fileRef.current.value = "";
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo registrar asistencia");
+    }
   };
 
   return (
@@ -69,14 +85,9 @@ export default function Attendance() {
             <span className="text-muted-foreground">{new Date().toLocaleString("es-PE", { hour: "2-digit", minute: "2-digit", weekday: "short", day: "2-digit", month: "short" })}</span>
           </div>
 
-          <div>
-            <label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Ubicación</label>
-            <Select value={locationId} onValueChange={setLocationId}>
-              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {locations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="rounded-xl border border-border p-3 text-sm">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Ubicación asignada</p>
+            <p className="font-medium mt-1">{assignedLocation?.name || "Sin ubicación"}</p>
           </div>
 
           <div>
@@ -112,14 +123,31 @@ export default function Attendance() {
             </div>
           </div>
 
-          <Button onClick={submit} disabled={!photo} className="w-full h-12 bg-foreground text-background hover:bg-foreground/90">
-            <Check className="size-5 mr-2" /> Marcar asistencia
+          <Button onClick={submit} disabled={!photo || markedToday} className="w-full h-12 bg-foreground text-background hover:bg-foreground/90">
+            <Check className="size-5 mr-2" /> {markedToday ? "Entrada ya marcada hoy" : "Marcar asistencia"}
           </Button>
         </div>
 
-        <div className="rounded-2xl bg-card border border-border/60 shadow-sm">
+        {isAdmin && <div className="rounded-2xl bg-card border border-border/60 shadow-sm">
           <div className="px-5 py-4 border-b border-border/60">
-            <h2 className="font-display font-bold">{isAdmin ? "Historial general" : "Mis marcaciones"}</h2>
+            <h2 className="font-display font-bold">Historial general</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+              <Select value={userFilter} onValueChange={setUserFilter}>
+                <SelectTrigger><SelectValue placeholder="Usuario" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los usuarios</SelectItem>
+                  {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} />
+              <Select value={locationFilter} onValueChange={setLocationFilter}>
+                <SelectTrigger><SelectValue placeholder="Ubicación" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas</SelectItem>
+                  {locations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <ul className="divide-y divide-border/60 max-h-[480px] overflow-y-auto">
             {records.length === 0 && <li className="p-6 text-sm text-muted-foreground text-center">Sin marcaciones todavía</li>}
@@ -134,7 +162,7 @@ export default function Attendance() {
               </li>
             ))}
           </ul>
-        </div>
+        </div>}
       </div>
     </>
   );

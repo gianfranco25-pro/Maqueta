@@ -13,7 +13,9 @@ import {
   initialUsers,
   pad,
 } from "./mockData";
-import type {
+import {
+  getUserRoles,
+  operationalRoleFor,
   AfterSale,
   AppSettings,
   AttendanceRecord,
@@ -28,6 +30,7 @@ import type {
   Sale,
   User,
 } from "./types";
+import { getProductPrices } from "./pricing";
 
 const initialInv = buildInitialInventory();
 
@@ -52,6 +55,13 @@ const getValidatedAvailableItems = (rawCodes: string[], inventory: InventoryItem
   }
 
   return { unitCodes, items: items as InventoryItem[] };
+};
+
+const normalizeOperationalRoles = (user: Pick<User, "role" | "roles">): Role[] => {
+  const roles = getUserRoles(user);
+  if (roles.includes("admin")) return ["admin"];
+  if (roles.includes("vendedor") && roles.includes("almacen")) return ["vendedor", "almacen"];
+  return [roles[0] || user.role];
 };
 
 type State = {
@@ -148,12 +158,18 @@ export const useAppStore = create<State & Actions>()(
       },
 
       addUser: (u) => {
-        const user: User = { ...u, id: `u-${Date.now()}`, createdAt: new Date().toISOString() };
+        const roles = normalizeOperationalRoles(u);
+        const user: User = { ...u, role: roles[0], roles, id: `u-${Date.now()}`, createdAt: new Date().toISOString() };
         set({ users: [...get().users, user] });
         return user;
       },
       updateUser: (id, patch) =>
-        set({ users: get().users.map((u) => (u.id === id ? { ...u, ...patch } : u)) }),
+        set({ users: get().users.map((u) => {
+          if (u.id !== id) return u;
+          const merged = { ...u, ...patch };
+          const roles = normalizeOperationalRoles(merged);
+          return { ...merged, role: roles[0], roles };
+        }) }),
       toggleUserActive: (id) =>
         set({ users: get().users.map((u) => (u.id === id ? { ...u, active: !u.active } : u)) }),
 
@@ -164,8 +180,18 @@ export const useAppStore = create<State & Actions>()(
       },
 
       addAttendance: (a) => {
+        const user = get().users.find((u) => u.id === a.userId);
+        const assignedLocation = user?.locationId || a.locationId;
+        const assignedLocationName = get().locations.find((l) => l.id === assignedLocation)?.name || a.locationName;
+        const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+        const alreadyMarked = get().attendance.some((record) =>
+          record.userId === a.userId && new Date(record.timestamp).toLocaleDateString("en-CA", { timeZone: "America/Lima" }) === today
+        );
+        if (alreadyMarked) throw new Error("Ya marcaste asistencia hoy");
         const rec: AttendanceRecord = {
           ...a,
+          locationId: assignedLocation,
+          locationName: assignedLocationName,
           id: `att-${Date.now()}`,
           timestamp: new Date().toISOString(),
         };
@@ -196,7 +222,7 @@ export const useAppStore = create<State & Actions>()(
           toLocationId: locationId,
           byUserId: get().currentUserId,
           byUserName: get().users.find((u) => u.id === get().currentUserId)?.name || "—",
-          byUserRole: get().users.find((u) => u.id === get().currentUserId)?.role,
+          byUserRole: operationalRoleFor(get().users.find((u) => u.id === get().currentUserId), "almacen"),
           timestamp: t,
         };
         set({ inventory: [...get().inventory, ...items], counters: c, movements: [mv, ...get().movements] });
@@ -220,7 +246,7 @@ export const useAppStore = create<State & Actions>()(
           toLocationId: locationId,
           byUserId: get().currentUserId,
           byUserName: get().users.find((u) => u.id === get().currentUserId)?.name || "—",
-          byUserRole: get().users.find((u) => u.id === get().currentUserId)?.role,
+          byUserRole: operationalRoleFor(get().users.find((u) => u.id === get().currentUserId), "almacen"),
           timestamp: t,
         };
         set({ inventory: [...get().inventory, ...newItems], counters: c, movements: [mv, ...get().movements] });
@@ -334,7 +360,7 @@ export const useAppStore = create<State & Actions>()(
           ...sale,
           id: `s-${Date.now()}`,
           code,
-          sellerRole: get().users.find((u) => u.id === sale.sellerId)?.role,
+          sellerRole: operationalRoleFor(get().users.find((u) => u.id === sale.sellerId), "vendedor"),
           status: "pendiente_cobro",
           timestamp: new Date().toISOString(),
         };
@@ -469,7 +495,7 @@ export const useAppStore = create<State & Actions>()(
         if (reservedItems.some((item) => item?.status !== "disponible")) throw new Error("El nuevo producto no está disponible");
 
         const newProduct = get().products.find((p) => p.id === reservedItems[0]?.productId);
-        const diff = Math.max(0, (newProduct?.basePrice || 0) - oldLine.finalPrice);
+        const diff = Math.max(0, (newProduct ? getProductPrices(newProduct).basePrice : 0) - oldLine.finalPrice);
         const after: AfterSale = {
           id: `as-${Date.now()}`,
           type: "cambio",
