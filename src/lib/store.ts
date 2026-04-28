@@ -356,7 +356,7 @@ export const useAppStore = create<State & Actions>()(
         return fullSale;
       },
 
-      confirmSalePayment: (saleId, payments, totalSurcharge, total, cashierId, cashierName) => {
+      confirmSalePayment: (saleId, payments, totalSurcharge, total, cashierId, cashierName, cashierRole) => {
         const sale = get().sales.find((s) => s.id === saleId);
         if (!sale || sale.status !== "pendiente_cobro") return;
         const soldUnitCodes = new Set<string>();
@@ -380,7 +380,9 @@ export const useAppStore = create<State & Actions>()(
           paidAt: new Date().toISOString(),
           paidByCashierId: cashierId,
           paidByCashierName: cashierName,
+          paidByCashierRole: cashierRole,
           cashierId,
+          cashierRole,
         };
         const mv: Movement = {
           id: `mv-${Date.now()}`,
@@ -417,7 +419,7 @@ export const useAppStore = create<State & Actions>()(
         set({ sales: updated, inventory: inv });
       },
 
-      voidSale: (saleId, reason, byUserId, byUserName) => {
+      voidSale: (saleId, reason, byUserId, byUserName, byUserRole) => {
         const sale = get().sales.find((s) => s.id === saleId);
         if (!sale) return;
         // Devolver items al stock
@@ -441,13 +443,14 @@ export const useAppStore = create<State & Actions>()(
           saleCode: sale.code,
           byUserId,
           byUserName,
+          byUserRole,
           reason,
           timestamp: new Date().toISOString(),
         };
         set({ sales: updated, inventory: inv, afterSales: [after, ...get().afterSales] });
       },
 
-      registerExchange: (saleId, oldUnitCode, newUnitCode, _diff, byUserId, byUserName, reason) => {
+      registerExchange: (saleId, oldUnitCode, newUnitCode, _diff, byUserId, byUserName, byUserRole, reason) => {
         const sale = get().sales.find((s) => s.id === saleId);
         if (!sale || sale.status !== "confirmada") throw new Error("Selecciona una venta confirmada");
         const oldLine = sale.lines.find((l) => l.unitCode === oldUnitCode);
@@ -470,6 +473,7 @@ export const useAppStore = create<State & Actions>()(
           saleCode: sale.code,
           byUserId,
           byUserName,
+          byUserRole,
           reason: `${reason} | ${oldUnitCode} → ${newUnitCode}`,
           diff,
           timestamp: new Date().toISOString(),
@@ -482,7 +486,7 @@ export const useAppStore = create<State & Actions>()(
         set({ afterSales: [after, ...get().afterSales], inventory: inv });
       },
 
-      registerWrongPurchase: (saleId, reason, byUserId, byUserName) => {
+      registerWrongPurchase: (saleId, reason, byUserId, byUserName, byUserRole) => {
         const sale = get().sales.find((s) => s.id === saleId);
         if (!sale) return;
         const after: AfterSale = {
@@ -492,6 +496,7 @@ export const useAppStore = create<State & Actions>()(
           saleCode: sale.code,
           byUserId,
           byUserName,
+          byUserRole,
           reason,
           timestamp: new Date().toISOString(),
         };
