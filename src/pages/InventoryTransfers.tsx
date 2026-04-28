@@ -40,7 +40,7 @@ export default function InventoryTransfers() {
     if (!user) return;
     if (codes.length === 0) return toast.error("Agrega al menos un código");
     try {
-      transfer(codes, toLoc, user.id, user.name, received || undefined);
+      transfer(codes, toLoc, user.id, user.name, user.role, received || undefined);
       toast.success("Traslado registrado");
       setCodes([]);
       setReceived("");
@@ -91,7 +91,7 @@ export default function InventoryTransfers() {
               {movements.map((mv) => (
                 <li key={mv.id} className="px-4 py-3 text-sm">
                   <p className="font-mono text-xs">{mv.unitCodes.join(", ")}</p>
-                  <p className="text-xs text-muted-foreground">{mv.byUserName}{mv.receivedBy ? ` → ${mv.receivedBy}` : ""} · {fmtDateTime(mv.timestamp)}</p>
+                  <p className="text-xs text-muted-foreground">{mv.byUserName}{mv.byUserRole ? ` (${mv.byUserRole})` : ""}{mv.receivedBy ? ` → ${mv.receivedBy}` : ""} · {fmtDateTime(mv.timestamp)}</p>
                 </li>
               ))}
             </ul>
