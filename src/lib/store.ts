@@ -232,7 +232,7 @@ export const useAppStore = create<State & Actions>()(
           ),
         }),
 
-      transferItems: (rawCodes, toLocationId, byUserId, byUserName, receivedBy) => {
+      transferItems: (rawCodes, toLocationId, byUserId, byUserName, byUserRole, receivedBy) => {
         const inventory = get().inventory;
         const { unitCodes, items } = getValidatedAvailableItems(rawCodes, inventory);
         const fromLocationId = items[0]?.locationId;
@@ -254,13 +254,14 @@ export const useAppStore = create<State & Actions>()(
           toLocationId,
           byUserId,
           byUserName,
+          byUserRole,
           receivedBy,
           timestamp: new Date().toISOString(),
         };
         set({ inventory: inv, movements: [mv, ...get().movements] });
       },
 
-      deliverFromWarehouse: (rawCodes, byUserId, byUserName, receivedBy) => {
+      deliverFromWarehouse: (rawCodes, byUserId, byUserName, byUserRole, receivedBy) => {
         const inventory = get().inventory;
         const warehouseIds = get().locations.filter((l) => l.type === "almacen").map((l) => l.id);
         const receiver = get().users.find((u) => u.active && u.name.toLowerCase() === (receivedBy || "").trim().toLowerCase());
@@ -290,6 +291,7 @@ export const useAppStore = create<State & Actions>()(
           toLocationId,
           byUserId,
           byUserName,
+          byUserRole,
           receivedBy: receiver.name,
           timestamp: new Date().toISOString(),
         };
@@ -301,13 +303,14 @@ export const useAppStore = create<State & Actions>()(
           inventory: get().inventory.map((i) => (i.unitCode === unitCode ? { ...i, status: "muestra" } : i)),
         }),
 
-      markAsFault: (unitCode, reason, byUserId, byUserName) => {
+      markAsFault: (unitCode, reason, byUserId, byUserName, byUserRole) => {
         const mv: Movement = {
           id: `mv-${Date.now()}`,
           type: "falla",
           unitCodes: [unitCode],
           byUserId,
           byUserName,
+          byUserRole,
           reason,
           timestamp: new Date().toISOString(),
         };
