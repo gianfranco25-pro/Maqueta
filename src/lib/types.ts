@@ -53,6 +53,18 @@ export type AttendanceRecord = {
 
 export type ProductType = "zapato" | "accesorio";
 
+export type PriceMode = "base" | "talla_exacta" | "rango_tallas";
+
+export type SizePriceRule = {
+  id: string;
+  label: string;
+  minSize?: number;
+  maxSize?: number;
+  size?: string;
+  basePrice: number;
+  wholesalePrice: number;
+};
+
 export type Product = {
   id: string;
   type: ProductType;
@@ -62,6 +74,8 @@ export type Product = {
   size?: string; // talla, solo zapatos
   basePrice: number;
   wholesalePrice: number;
+  priceMode?: PriceMode;
+  sizePrices?: SizePriceRule[];
   active: boolean;
   createdAt: string;
 };
