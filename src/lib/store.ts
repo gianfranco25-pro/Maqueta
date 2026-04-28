@@ -15,7 +15,6 @@ import {
 } from "./mockData";
 import {
   getUserRoles,
-  type {
   AfterSale,
   AppSettings,
   AttendanceRecord,
@@ -29,7 +28,6 @@ import {
   Role,
   Sale,
   User,
-  },
 } from "./types";
 
 const initialInv = buildInitialInventory();
