@@ -144,9 +144,6 @@ type Actions = {
 
   // Advances
   addAdvance: (advance: Omit<AdvanceRecord, "id" | "timestamp">) => AdvanceRecord;
-
-  // Util
-  resetData: () => void;
 };
 
 export const useAppStore = create<State & Actions>()(
@@ -710,27 +707,6 @@ export const useAppStore = create<State & Actions>()(
         };
         set({ advances: [record, ...get().advances] });
         return record;
-      },
-
-      resetData: () => {
-        const fresh = buildInitialInventory();
-        set({
-          currentUserId: "u-admin",
-          currentRole: "admin",
-          catalogMasters: initialCatalogMasters,
-          locations: initialLocations,
-          users: initialUsers,
-          products: initialProducts,
-          inventory: fresh.items,
-          counters: fresh.counters,
-          attendance: [],
-          movements: [],
-          sales: [],
-          afterSales: [],
-          authorizations: [],
-          advances: [],
-          settings: initialSettings,
-        });
       },
     }),
     {
