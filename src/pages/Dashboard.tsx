@@ -9,7 +9,6 @@ import {
   ShoppingCart,
   Package,
   TrendingUp,
-  ScanLine,
   RotateCcw,
   Wallet,
   ClipboardCheck,
@@ -28,7 +27,6 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { StatusBadge } from "@/components/StatusBadge";
-import { useCan } from "@/components/Can";
 
 export default function Dashboard() {
   const user = useCurrentUser();
@@ -65,8 +63,7 @@ function AdminDashboard() {
       <section>
         <h2 className="font-display font-bold text-lg mb-3">Accesos rápidos</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <QuickTile to="/escanear" icon={ScanLine} label="Escanear" emphasis />
-          <QuickTile to="/ventas/nueva" icon={ShoppingCart} label="Nueva venta" />
+          <QuickTile to="/autorizaciones" icon={ShieldCheck} label="Autorizaciones" emphasis />
           <QuickTile to="/ventas/por-cobrar" icon={Receipt} label="Por cobrar" />
           <QuickTile to="/inventario" icon={Package} label="Inventario" />
           <QuickTile to="/inventario/tienda" icon={Store} label="En tienda" />
@@ -77,7 +74,7 @@ function AdminDashboard() {
           <QuickTile to="/adelantos" icon={Wallet} label="Adelantos" />
           <QuickTile to="/comisiones" icon={Wallet} label="Liquidaciones" />
           <QuickTile to="/reportes" icon={BarChart3} label="Reportes" />
-          <QuickTile to="/configuracion" icon={Settings} label="Configuracion" />
+          <QuickTile to="/configuracion" icon={Settings} label="Reglas" />
         </div>
       </section>
 
@@ -148,12 +145,12 @@ function SellerDashboard() {
       <section>
         <h2 className="font-display font-bold text-lg mb-3">Acciones rápidas</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <QuickTile to="/escanear" icon={ScanLine} label="Escanear y vender" emphasis />
-          <QuickTile to="/ventas/nueva" icon={ShoppingCart} label="Nueva venta" />
+          <QuickTile to="/ventas/nueva" icon={ShoppingCart} label="Nueva venta" emphasis />
           <QuickTile to="/inventario" icon={Search} label="Buscar stock" />
           <QuickTile to="/postventa" icon={RotateCcw} label="Cambios" />
           <QuickTile to="/asistencia" icon={ClipboardCheck} label="Marcar asistencia" />
-          <QuickTile to="/mis-ingresos" icon={Wallet} label="Mis ingresos" />
+          <QuickTile to="/mis-ingresos" icon={Wallet} label="Mi comisión" />
+          <QuickTile to="/mis-ingresos" icon={Wallet} label="Mis adelantos" />
         </div>
       </section>
     </div>
@@ -166,12 +163,9 @@ function CashierDashboard() {
       <section>
         <h2 className="font-display font-bold text-lg mb-3">Caja</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <QuickTile to="/escanear" icon={ScanLine} label="Escanear venta" emphasis />
-          <QuickTile to="/ventas/por-cobrar" icon={Receipt} label="Por cobrar" />
+          <QuickTile to="/ventas/por-cobrar" icon={Receipt} label="Por cobrar" emphasis />
           <QuickTile to="/ventas" icon={ShoppingCart} label="Revisar ventas" />
           <QuickTile to="/postventa" icon={RotateCcw} label="Diferencias" />
-          <QuickTile to="/adelantos" icon={Wallet} label="Adelantos" />
-          <QuickTile to="/reportes" icon={BarChart3} label="Reportes" />
           <QuickTile to="/asistencia" icon={ClipboardCheck} label="Asistencia" />
         </div>
       </section>
@@ -193,42 +187,13 @@ function WarehouseDashboard() {
       <section>
         <h2 className="font-display font-bold text-lg mb-3">Almacén</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <QuickTile to="/escanear" icon={ScanLine} label="Escanear QR" emphasis />
-          <QuickTile to="/inventario/ingreso" icon={Package} label="Ingreso" />
+          <QuickTile to="/inventario/ingreso" icon={Package} label="Ingreso" emphasis />
           <QuickTile to="/inventario/traslados" icon={Truck} label="Traslados" />
           <QuickTile to="/inventario/entregas" icon={Truck} label="Entregas" />
           <QuickTile to="/inventario/fallas" icon={AlertTriangle} label="Fallas" />
           <QuickTile to="/inventario/ajustes" icon={SlidersHorizontal} label="Ajustes" />
           <QuickTile to="/inventario/tienda" icon={Store} label="En tienda" />
           <QuickTile to="/asistencia" icon={ClipboardCheck} label="Asistencia" />
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function RemovedRoleDashboard() {
-  const m = useDashboardMetrics();
-  const canReviewAuth = useCan("auth.review");
-  const canViewCommissions = useCan("commissions.all");
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard label="Ventas semana" value={fmtMoney(m.weekRevenue)} icon={TrendingUp} tone="gold" />
-        <StatCard label="Pares semana" value={m.pairsWeek} icon={Package} />
-        <StatCard label="Asistencia hoy" value={m.attendanceToday} icon={ClipboardCheck} />
-        <StatCard label="Pendiente autorizar" value={m.pendingAuth} icon={ShieldCheck} tone="critical" />
-      </div>
-      <section>
-        <h2 className="font-display font-bold text-lg mb-3">Gestión</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <QuickTile to="/escanear" icon={ScanLine} label="Escanear" emphasis />
-          <QuickTile to="/reportes" icon={BarChart3} label="Reportes" />
-          {canViewCommissions && <QuickTile to="/comisiones" icon={Wallet} label="Liquidaciones" />}
-          <QuickTile to="/asistencia" icon={ClipboardCheck} label="Asistencia" />
-          {canReviewAuth && <QuickTile to="/autorizaciones" icon={ShieldCheck} label="Autorizaciones" />}
-          <QuickTile to="/ventas" icon={ShoppingCart} label="Revisar ventas" />
-          <QuickTile to="/inventario" icon={Package} label="Revisar stock" />
         </div>
       </section>
     </div>

@@ -103,9 +103,6 @@ export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
     "aftersales.exchange",
     "aftersales.wrong",
     "inventory.scan",
-    "reports.global",
-    "profit.view",
-    "advances.view.all",
   ],
   almacen: [
     "attendance.mark",

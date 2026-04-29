@@ -94,7 +94,6 @@ export default function Catalog() {
   const canEditPrices = useCan("catalog.prices.edit");
   const catalogMasters = useAppStore((s) => s.catalogMasters);
   const products = useAppStore((s) => s.products);
-  const inventory = useAppStore((s) => s.inventory);
   const settings = useAppStore((s) => s.settings);
   const addCatalogMaster = useAppStore((s) => s.addCatalogMaster);
   const updateCatalogMaster = useAppStore((s) => s.updateCatalogMaster);
@@ -152,22 +151,6 @@ export default function Catalog() {
       .map((product) => product.model);
     return mergeNames(structuredModels, uniqueSorted(legacyModels));
   }, [catalogMasters.brands, catalogMasters.models, form.brand, products]);
-
-  const stockOf = (productId: string) => {
-    const items = inventory.filter((i) => i.productId === productId && i.status === "disponible");
-    const product = products.find((p) => p.id === productId);
-    if (product?.type === "zapato") {
-      const byPair: Record<string, { d: boolean; i: boolean }> = {};
-      items.forEach((it) => {
-        if (!it.pairCode) return;
-        byPair[it.pairCode] ||= { d: false, i: false };
-        if (it.side === "D") byPair[it.pairCode].d = true;
-        if (it.side === "I") byPair[it.pairCode].i = true;
-      });
-      return Object.values(byPair).filter((p) => p.d && p.i).length;
-    }
-    return items.length;
-  };
 
   const openNew = () => {
     setEditingId(null);
@@ -308,7 +291,6 @@ export default function Catalog() {
         <TabsContent value="productos">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {filtered.map((p) => {
-              const stock = stockOf(p.id);
               const prices = getProductPrices(p);
               const discountLimit = p.maxDiscountSoles ?? settings.maxDiscountSoles;
               const minimumAllowedPrice = Math.max(0, prices.basePrice - discountLimit);
@@ -348,9 +330,9 @@ export default function Catalog() {
                           {PRICE_MODE_LABELS[p.priceMode || "base"]}{prices.ruleLabel ? ` · ${prices.ruleLabel}` : ""}
                         </p>
                       </div>
-                      <div className="rounded-xl bg-secondary px-3 py-2 text-center min-w-20">
-                        <p className="text-xs text-muted-foreground">Disponible</p>
-                        <p className="font-display font-bold text-xl">{stock}</p>
+                      <div className="rounded-xl bg-secondary px-3 py-2 text-center min-w-24">
+                        <p className="text-xs text-muted-foreground">Descuento</p>
+                        <p className="font-display font-bold text-xl">{fmtMoney(discountLimit)}</p>
                       </div>
                     </div>
 
@@ -385,10 +367,6 @@ export default function Catalog() {
                       <p className="text-xs text-muted-foreground">Precio por mayor: {fmtMoney(prices.wholesalePrice)}</p>
                       <p className="text-xs text-muted-foreground">Descuento max: {fmtMoney(p.maxDiscountSoles ?? settings.maxDiscountSoles)}</p>
                       <p className="text-xs text-muted-foreground">Costo: {fmtMoney(prices.cost)} · Utilidad base: {fmtMoney(prices.basePrice - prices.cost)}</p>
-                    </div>
-                    <div className="hidden">
-                      <p className="text-xs text-muted-foreground">Stock</p>
-                      <p className="font-display font-bold text-lg">{stock}</p>
                     </div>
                   </div>
                 </div>

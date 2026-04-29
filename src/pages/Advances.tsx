@@ -19,11 +19,12 @@ import { toast } from "sonner";
 export default function Advances() {
   const canManage = useCan("advances.manage");
   const users = useAppStore((s) => s.users);
-  const advances = useAppStore((s) => s.advances);
+  const allAdvances = useAppStore((s) => s.advances);
   const settings = useAppStore((s) => s.settings);
   const addAdvance = useAppStore((s) => s.addAdvance);
   const currentUser = useCurrentUser();
   const collaborators = users.filter((user) => getUserRoles(user).includes("vendedor"));
+  const advances = canManage ? allAdvances : allAdvances.filter((advance) => advance.userId === currentUser?.id);
 
   const [userId, setUserId] = useState(collaborators[0]?.id || "");
   const [amount, setAmount] = useState(0);
@@ -56,7 +57,7 @@ export default function Advances() {
 
   return (
     <>
-      <PageHeader title="Adelantos" subtitle="Historial y control para liquidaciones" />
+      <PageHeader title="Adelantos" subtitle={canManage ? "Historial y control para liquidaciones" : "Mis adelantos registrados"} />
 
       <div className="grid lg:grid-cols-[1fr_360px] gap-6">
         <div className="rounded-2xl bg-card border overflow-hidden">

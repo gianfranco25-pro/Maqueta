@@ -1,5 +1,5 @@
 import { Brand } from "@/components/Brand";
-import { Bell, ScanLine } from "lucide-react";
+import { Bell } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAppStore, useCurrentRole, useCurrentUser } from "@/lib/store";
 import { useCan } from "@/components/Can";
@@ -20,7 +20,6 @@ export function TopBar() {
   const setCurrentUser = useAppStore((s) => s.setCurrentUser);
   const setCurrentRole = useAppStore((s) => s.setCurrentRole);
   const user = useCurrentUser();
-  const canScan = useCan("inventory.scan");
   const canReviewAuth = useCan("auth.review");
   const activeUsers = users.filter((item) => item.active);
   const roles = getUserRoles(user);
@@ -35,15 +34,6 @@ export function TopBar() {
           <span className="font-medium text-foreground">Operaciones</span>
         </div>
         <div className="flex items-center gap-2">
-          {canScan && (
-            <Link
-              to="/escanear"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-foreground text-background px-3 py-1.5 text-xs font-semibold hover:opacity-90 transition-opacity"
-            >
-              <ScanLine className="size-3.5" />
-              Escanear
-            </Link>
-          )}
           {canReviewAuth && (
             <Link
               to="/autorizaciones"
@@ -62,7 +52,7 @@ export function TopBar() {
             <>
               {roles.length > 1 && currentRole && (
                 <Select value={currentRole} onValueChange={(value) => setCurrentRole(value as Role)}>
-                  <SelectTrigger className="h-9 w-[116px] rounded-full bg-card shadow-sm">
+                  <SelectTrigger className="h-9 w-[150px] rounded-full bg-card shadow-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent align="end">
