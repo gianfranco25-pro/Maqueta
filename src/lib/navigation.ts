@@ -38,7 +38,7 @@ export const allNav: Record<string, NavItem> = {
   attendance: { to: "/asistencia", label: "Asistencia", icon: ClipboardCheck, short: "Asistencia" },
   catalog: { to: "/catalogo", label: "Catálogo", icon: Tag, short: "Catálogo" },
   inventory: { to: "/inventario", label: "Inventario", icon: Package, short: "Stock" },
-  scan: { to: "/escanear", label: "Escanear", icon: ScanLine, short: "Escanear" },
+  scan: { to: "/escanear", label: "Escaneo general", icon: ScanLine, short: "Escanear" },
   sales: { to: "/ventas", label: "Ventas", icon: ShoppingCart, short: "Ventas" },
   newSale: { to: "/ventas/nueva", label: "Nueva venta", icon: ShoppingCart, short: "Vender" },
   pendingPayments: { to: "/ventas/por-cobrar", label: "Por cobrar", icon: Receipt, short: "Cobrar" },
@@ -54,7 +54,7 @@ export const allNav: Record<string, NavItem> = {
   adjustments: { to: "/inventario/ajustes", label: "Ajustes", icon: SlidersHorizontal },
   storefront: { to: "/inventario/tienda", label: "Productos en tienda", icon: Store, short: "Tienda" },
   authorizations: { to: "/autorizaciones", label: "Autorizaciones", icon: ShieldCheck },
-  settings: { to: "/configuracion", label: "Configuracion", icon: Settings },
+  settings: { to: "/configuracion", label: "Reglas", icon: Settings },
   saleHistory: { to: "/ventas", label: "Historial venta", icon: Receipt },
 };
 
@@ -71,7 +71,6 @@ export const sidebarByRole: Record<Role, NavItem[]> = {
     allNav.deliveries,
     allNav.adjustments,
     allNav.storefront,
-    allNav.scan,
     allNav.sales,
     allNav.pendingPayments,
     allNav.aftersales,
@@ -83,7 +82,6 @@ export const sidebarByRole: Record<Role, NavItem[]> = {
   ],
   vendedor: [
     allNav.dashboard,
-    allNav.scan,
     allNav.newSale,
     allNav.inventory,
     allNav.aftersales,
@@ -91,7 +89,6 @@ export const sidebarByRole: Record<Role, NavItem[]> = {
   ],
   cajero: [
     allNav.dashboard,
-    allNav.scan,
     allNav.sales,
     allNav.pendingPayments,
     allNav.aftersales,
@@ -102,7 +99,6 @@ export const sidebarByRole: Record<Role, NavItem[]> = {
     allNav.dashboard,
     allNav.inventory,
     allNav.inventoryEntry,
-    allNav.scan,
     allNav.transfers,
     allNav.deliveries,
     allNav.faults,
@@ -138,10 +134,10 @@ export const primaryActionByRole: Record<Role, NavItem> = {
 
 export const primaryActionForUser = (user?: Pick<User, "role" | "roles"> | null, activeRole?: Role) => {
   const roles = rolesForNavigation(user, activeRole);
-  if (roles.includes("vendedor")) return allNav.scan;
-  if (roles.includes("cajero")) return allNav.scan;
-  if (roles.includes("almacen")) return allNav.scan;
-  return allNav.scan;
+  if (roles.includes("vendedor")) return allNav.newSale;
+  if (roles.includes("cajero")) return allNav.pendingPayments;
+  if (roles.includes("almacen")) return allNav.inventoryEntry;
+  return allNav.pendingPayments;
 };
 
 // Bottom nav: 4 items + 1 acción central destacada

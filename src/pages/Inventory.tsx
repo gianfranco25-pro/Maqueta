@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Link } from "react-router-dom";
-import { Package, Truck, AlertTriangle, ArrowDownToLine, ScanLine, Store, SlidersHorizontal } from "lucide-react";
+import { Package, Truck, AlertTriangle, ArrowDownToLine, Store, SlidersHorizontal } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { QRImage } from "@/components/QRImage";
 import {
@@ -27,7 +27,6 @@ export default function Inventory() {
   const inventory = useAppStore((s) => s.inventory);
   const locations = useAppStore((s) => s.locations);
   const settings = useAppStore((s) => s.settings);
-  const canScan = useCan("inventory.scan");
   const canEntry = useCan("inventory.entry");
   const canTransfer = useCan("inventory.transfer");
   const canDelivery = useCan("inventory.delivery");
@@ -73,9 +72,6 @@ export default function Inventory() {
         subtitle={`${inventory.length} unidades registradas`}
         action={
           <div className="flex gap-2">
-            {canScan && (
-              <Link to="/escanear"><Button variant="outline"><ScanLine className="size-4 mr-1" /> Escanear</Button></Link>
-            )}
             {canEntry && (
               <Link to="/inventario/ingreso">
                 <Button className="bg-foreground text-background hover:bg-foreground/90">
