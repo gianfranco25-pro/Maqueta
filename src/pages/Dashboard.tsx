@@ -27,7 +27,6 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { StatusBadge } from "@/components/StatusBadge";
-import { useCan } from "@/components/Can";
 
 export default function Dashboard() {
   const user = useCurrentUser();
@@ -195,32 +194,6 @@ function WarehouseDashboard() {
           <QuickTile to="/inventario/ajustes" icon={SlidersHorizontal} label="Ajustes" />
           <QuickTile to="/inventario/tienda" icon={Store} label="En tienda" />
           <QuickTile to="/asistencia" icon={ClipboardCheck} label="Asistencia" />
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function RemovedRoleDashboard() {
-  const m = useDashboardMetrics();
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard label="Ventas semana" value={fmtMoney(m.weekRevenue)} icon={TrendingUp} tone="gold" />
-        <StatCard label="Pares semana" value={m.pairsWeek} icon={Package} />
-        <StatCard label="Asistencia hoy" value={m.attendanceToday} icon={ClipboardCheck} />
-        <StatCard label="Pendiente autorizar" value={m.pendingAuth} icon={ShieldCheck} tone="critical" />
-      </div>
-      <section>
-        <h2 className="font-display font-bold text-lg mb-3">Gestión</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <QuickTile to="/escanear" icon={ScanLine} label="Escanear" emphasis />
-          <QuickTile to="/reportes" icon={BarChart3} label="Reportes" />
-          {canViewCommissions && <QuickTile to="/comisiones" icon={Wallet} label="Liquidaciones" />}
-          <QuickTile to="/asistencia" icon={ClipboardCheck} label="Asistencia" />
-          {canReviewAuth && <QuickTile to="/autorizaciones" icon={ShieldCheck} label="Autorizaciones" />}
-          <QuickTile to="/ventas" icon={ShoppingCart} label="Revisar ventas" />
-          <QuickTile to="/inventario" icon={Package} label="Revisar stock" />
         </div>
       </section>
     </div>
