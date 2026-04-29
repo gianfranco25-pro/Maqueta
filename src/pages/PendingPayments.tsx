@@ -81,6 +81,7 @@ export default function PendingPayments() {
   };
 
   const addPayment = () => setPayments([...payments, emptyPayment()]);
+  const fillRemaining = (index: number) => updatePayment(index, { amount: Math.max(0, +(remaining + (payments[index]?.amount || 0)).toFixed(2)) });
   const removePayment = (index: number) => setPayments(payments.filter((_, currentIndex) => currentIndex !== index));
 
   const confirm = () => {
@@ -223,6 +224,7 @@ export default function PendingPayments() {
                           className="w-28"
                           placeholder="Monto"
                         />
+                        <Button size="sm" variant="outline" onClick={() => fillRemaining(index)}>Falta</Button>
                         {payments.length > 1 && (
                           <Button size="icon" variant="ghost" onClick={() => removePayment(index)}>
                             <Trash2 className="size-4" />
