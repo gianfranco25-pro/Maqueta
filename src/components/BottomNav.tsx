@@ -1,13 +1,14 @@
 import { NavLink } from "@/components/NavLink";
-import { useCurrentUser } from "@/lib/store";
+import { useCurrentRole, useCurrentUser } from "@/lib/store";
 import { bottomNavForUser, primaryActionForUser } from "@/lib/navigation";
 import { Link } from "react-router-dom";
 
 export function BottomNav() {
   const user = useCurrentUser();
+  const role = useCurrentRole();
   if (!user) return null;
-  const items = bottomNavForUser(user);
-  const primary = primaryActionForUser(user);
+  const items = bottomNavForUser(user, role);
+  const primary = primaryActionForUser(user, role);
   const PrimaryIcon = primary.icon;
 
   // Insertar el botón central en la mitad

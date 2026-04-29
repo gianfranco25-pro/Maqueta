@@ -28,6 +28,7 @@ export const resolveProductPriceRule = (product: Product): SizePriceRule | undef
 export const getProductPrices = (product: Product) => {
   const rule = resolveProductPriceRule(product);
   return {
+    cost: product.cost ?? 0,
     basePrice: rule?.basePrice ?? product.basePrice,
     wholesalePrice: rule?.wholesalePrice ?? product.wholesalePrice,
     ruleLabel: rule?.label,

@@ -26,7 +26,8 @@ export type Capability =
   | "inventory.transfer"
   | "inventory.delivery"
   | "inventory.fault"
-  | "inventory.sample"
+  | "inventory.adjust"
+  | "inventory.storefront"
   | "inventory.qr.generate"
   | "inventory.scan"
   // Catálogo y precios
@@ -35,10 +36,14 @@ export type Capability =
   | "catalog.prices.edit"
   // Usuarios
   | "users.manage"
+  | "locations.manage"
   // Reportes
   | "reports.global"
+  | "profit.view"
   | "income.own"
   | "commissions.all"
+  | "advances.view.all"
+  | "advances.manage"
   // Autorizaciones
   | "auth.review" // aprobar / rechazar
   // Configuración del sistema
@@ -60,16 +65,21 @@ const ALL: Capability[] = [
   "inventory.transfer",
   "inventory.delivery",
   "inventory.fault",
-  "inventory.sample",
+  "inventory.adjust",
+  "inventory.storefront",
   "inventory.qr.generate",
   "inventory.scan",
   "catalog.view",
   "catalog.edit",
   "catalog.prices.edit",
   "users.manage",
+  "locations.manage",
   "reports.global",
+  "profit.view",
   "income.own",
   "commissions.all",
+  "advances.view.all",
+  "advances.manage",
   "auth.review",
   "settings.system",
 ];
@@ -82,11 +92,20 @@ export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
     "sales.price.edit",
     "aftersales.exchange",
     "inventory.view",
+    "inventory.scan",
     "income.own",
   ],
   cajero: [
     "attendance.mark",
+    "sales.view.all",
     "sales.collect",
+    "sales.cancelDraft",
+    "aftersales.exchange",
+    "aftersales.wrong",
+    "inventory.scan",
+    "reports.global",
+    "profit.view",
+    "advances.view.all",
   ],
   almacen: [
     "attendance.mark",
@@ -95,24 +114,16 @@ export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
     "inventory.transfer",
     "inventory.delivery",
     "inventory.fault",
-    "inventory.sample",
+    "inventory.adjust",
+    "inventory.storefront",
     "inventory.qr.generate",
     "inventory.scan",
-  ],
-  administrativo: [
-    "attendance.mark",
-    "sales.view.all",
-    "inventory.view",
-    "reports.global",
-    "commissions.all",
-    "auth.review", // revisa, no necesariamente aprueba críticas
-    "catalog.view",
   ],
 };
 
 export function can(userOrRole: Role | Pick<User, "role" | "roles"> | undefined, cap: Capability): boolean {
   const roles = typeof userOrRole === "string" ? [userOrRole] : getUserRoles(userOrRole);
-  return roles.some((role) => ROLE_CAPABILITIES[role].includes(cap));
+  return roles.some((role) => ROLE_CAPABILITIES[role]?.includes(cap));
 }
 
 export function canAny(userOrRole: Role | Pick<User, "role" | "roles"> | undefined, caps: Capability[]): boolean {
@@ -122,6 +133,7 @@ export function canAny(userOrRole: Role | Pick<User, "role" | "roles"> | undefin
 /** Mapa ruta → capability mínima requerida. Si el usuario no la tiene, se redirige. */
 export const ROUTE_CAPABILITIES: Record<string, Capability | Capability[]> = {
   "/usuarios": "users.manage",
+  "/ubicaciones": "locations.manage",
   "/asistencia": "attendance.mark",
   "/catalogo": "catalog.view",
   "/inventario": "inventory.view",
@@ -129,15 +141,17 @@ export const ROUTE_CAPABILITIES: Record<string, Capability | Capability[]> = {
   "/inventario/traslados": "inventory.transfer",
   "/inventario/entregas": "inventory.delivery",
   "/inventario/fallas": "inventory.fault",
-  "/inventario/muestras": "inventory.sample",
+  "/inventario/ajustes": "inventory.adjust",
+  "/inventario/tienda": "inventory.storefront",
   "/escanear": "inventory.scan",
-  "/ventas": ["sales.view.own", "sales.view.all"], // vendedor ve solo las suyas (filtrado en página)
+  "/ventas": ["sales.view.own", "sales.view.all"], // colaborador ve solo las suyas (filtrado en página)
   "/ventas/nueva": "sales.create",
   "/ventas/por-cobrar": "sales.collect",
   "/postventa": "aftersales.exchange",
   "/autorizaciones": "auth.review",
   "/reportes": "reports.global",
   "/comisiones": "commissions.all",
+  "/adelantos": ["advances.view.all", "advances.manage"],
   "/mis-ingresos": "income.own",
   "/configuracion": "settings.system",
 };

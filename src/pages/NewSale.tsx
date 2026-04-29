@@ -12,8 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { QRScanner, isPairCode, isValidUnitCode } from "@/components/QRScanner";
-import { ScanLine, Trash2, Plus, ShieldAlert, Send, CreditCard, ArrowLeftRight } from "lucide-react";
-import type { PaymentMethod, PaymentSplit, SaleLine } from "@/lib/types";
+import { ScanLine, Trash2, Plus, ShieldAlert, Send } from "lucide-react";
+import type { SaleLine } from "@/lib/types";
 import { fmtMoney } from "@/lib/format";
 import { toast } from "sonner";
 import { getProductPrices } from "@/lib/pricing";
@@ -32,137 +32,147 @@ export default function NewSale() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [payments, setPayments] = useState<PaymentSplit[]>([{ method: "efectivo", amount: 0 }]);
 
-  const addUnit = (code: string) => {
-    code = code.trim().toUpperCase();
+  const isAvailableAtUserLocation = (unitCode: string) =>
+    inventory.find((item) =>
+      item.unitCode === unitCode &&
+      item.status === "disponible" &&
+      item.locationId === user?.locationId
+    );
+
+  const addUnit = (rawCode: string) => {
+    const code = rawCode.trim().toUpperCase();
     if (!isValidUnitCode(code) && !isPairCode(code)) {
-      toast.error("Código inválido");
+      toast.error("Codigo invalido");
       return;
     }
-    let isPair = false;
-    let unitCode = code;
-    if (code.startsWith("A")) {
-      isPair = true;
-      unitCode = code.includes("-") ? code.split("-")[0] : code;
-    }
-    if (lines.find((l) => l.unitCode === unitCode)) {
-      toast.info("Ya está agregado");
+
+    const isPair = code.startsWith("A");
+    const unitCode = isPair && code.includes("-") ? code.split("-")[0] : code;
+    if (lines.find((line) => line.unitCode === unitCode)) {
+      toast.info("Ya esta agregado");
       return;
     }
+
     if (isPair) {
-      const d = inventory.find((i) => i.unitCode === `${unitCode}-D` && i.status === "disponible");
-      const i = inventory.find((it) => it.unitCode === `${unitCode}-I` && it.status === "disponible");
-      if (!d || !i) {
-        toast.error("Par incompleto o no disponible");
+      const right = isAvailableAtUserLocation(`${unitCode}-D`);
+      const left = isAvailableAtUserLocation(`${unitCode}-I`);
+      if (!right || !left) {
+        toast.error("Par incompleto o no disponible en tu ubicacion");
         return;
       }
-      const product = products.find((p) => p.id === d.productId);
+      const product = products.find((p) => p.id === right.productId);
       if (!product) return;
       const prices = getProductPrices(product);
       setLines([
         ...lines,
         {
           productId: product.id,
-          productLabel: `${product.brand} · ${product.model}${product.size ? ` T${product.size}` : ""}`,
+          productLabel: `${product.brand} - ${product.model}${product.size ? ` T${product.size}` : ""}`,
           unitCode,
+          cost: prices.cost,
           basePrice: prices.basePrice,
           finalPrice: prices.basePrice,
           discount: 0,
+          maxDiscountSoles: product.maxDiscountSoles ?? settings.maxDiscountSoles,
+          utility: prices.basePrice - prices.cost,
           isPair: true,
         },
       ]);
-    } else {
-      const it = inventory.find((x) => x.unitCode === unitCode && x.status === "disponible");
-      if (!it) return toast.error("Unidad no disponible");
-      const product = products.find((p) => p.id === it.productId);
-      if (!product) return;
-      const prices = getProductPrices(product);
-      setLines([
-        ...lines,
-        {
-          productId: product.id,
-          productLabel: `${product.brand} · ${product.model}`,
-          unitCode,
-          basePrice: prices.basePrice,
-          finalPrice: prices.basePrice,
-          discount: 0,
-          isPair: false,
-        },
-      ]);
+      return;
     }
+
+    const item = isAvailableAtUserLocation(unitCode);
+    if (!item) {
+      toast.error("Unidad no disponible en tu ubicacion");
+      return;
+    }
+    const product = products.find((p) => p.id === item.productId);
+    if (!product) return;
+    const prices = getProductPrices(product);
+    setLines([
+      ...lines,
+      {
+        productId: product.id,
+        productLabel: `${product.brand} - ${product.model}`,
+        unitCode,
+        cost: prices.cost,
+        basePrice: prices.basePrice,
+        finalPrice: prices.basePrice,
+        discount: 0,
+        maxDiscountSoles: product.maxDiscountSoles ?? settings.maxDiscountSoles,
+        utility: prices.basePrice - prices.cost,
+        isPair: false,
+      },
+    ]);
   };
 
   const updateLinePrice = (idx: number, finalPrice: number) => {
-    setLines(lines.map((l, i) => (i === idx ? { ...l, finalPrice, discount: l.basePrice - finalPrice } : l)));
+    setLines(lines.map((line, index) =>
+      index === idx ? { ...line, finalPrice, discount: line.basePrice - finalPrice, utility: finalPrice - line.cost } : line
+    ));
   };
 
-  const removeLine = (idx: number) => setLines(lines.filter((_, i) => i !== idx));
+  const removeLine = (idx: number) => setLines(lines.filter((_, index) => index !== idx));
 
   const searchResults = useMemo(() => {
-    if (!search.trim()) return [];
+    if (!search.trim() || !user) return [];
     const q = search.toLowerCase();
     return products
-      .filter((p) => `${p.brand} ${p.model} ${p.color}`.toLowerCase().includes(q))
+      .filter((product) => product.active)
+      .filter((product) => `${product.brand} ${product.model} ${product.color}`.toLowerCase().includes(q))
       .slice(0, 6)
-      .map((p) => {
-        if (p.type === "zapato") {
-          const map: Record<string, { d?: any; i?: any }> = {};
+      .map((product) => {
+        if (product.type === "zapato") {
+          const pairs: Record<string, { d?: boolean; i?: boolean }> = {};
           inventory
-            .filter((i) => i.productId === p.id && i.status === "disponible" && i.pairCode)
-            .forEach((i) => {
-              map[i.pairCode!] ||= {};
-              if (i.side === "D") map[i.pairCode!].d = i;
-              if (i.side === "I") map[i.pairCode!].i = i;
+            .filter((item) =>
+              item.productId === product.id &&
+              item.status === "disponible" &&
+              item.locationId === user.locationId &&
+              item.pairCode
+            )
+            .forEach((item) => {
+              pairs[item.pairCode!] ||= {};
+              if (item.side === "D") pairs[item.pairCode!].d = true;
+              if (item.side === "I") pairs[item.pairCode!].i = true;
             });
-          const pair = Object.entries(map).find(([, v]) => v.d && v.i);
-          return { product: p, code: pair?.[0], isPair: true };
+          const pair = Object.entries(pairs).find(([, value]) => value.d && value.i);
+          return { product, code: pair?.[0], isPair: true };
         }
-        const u = inventory.find((i) => i.productId === p.id && !i.pairCode && i.status === "disponible");
-        return { product: p, code: u?.unitCode, isPair: false };
+
+        const unit = inventory.find((item) =>
+          item.productId === product.id &&
+          !item.pairCode &&
+          item.status === "disponible" &&
+          item.locationId === user.locationId
+        );
+        return { product, code: unit?.unitCode, isPair: false };
       });
-  }, [search, products, inventory]);
+  }, [search, products, inventory, user]);
 
-  const subtotal = lines.reduce((a, l) => a + l.finalPrice, 0);
-  const discountTotal = lines.reduce((a, l) => a + Math.max(0, l.discount), 0);
-  const exceedsDiscount = discountTotal > settings.maxDiscountSoles;
-  const surchargeTotal = payments.reduce((a, p) => a + (p.surcharge || 0), 0);
-  const total = subtotal + surchargeTotal;
-  const paid = payments.reduce((a, p) => a + p.amount + (p.surcharge || 0), 0);
-  const remaining = total - paid;
-
-  const updatePayment = (i: number, patch: Partial<PaymentSplit>) =>
-    setPayments(payments.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
-  const addPayment = () => setPayments([...payments, { method: "efectivo", amount: 0 }]);
-  const removePayment = (i: number) => setPayments(payments.filter((_, idx) => idx !== i));
-  const applyCardSurcharge = (i: number, apply: boolean) => {
-    const p = payments[i];
-    const surcharge = apply ? +(p.amount * (settings.cardSurchargePct / 100)).toFixed(2) : 0;
-    updatePayment(i, { surcharge });
-  };
-
-  useEffect(() => {
-    if (payments.length === 1 && payments[0].method !== "tarjeta") {
-      setPayments([{ ...payments[0], amount: subtotal }]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subtotal]);
+  const subtotal = lines.reduce((acc, line) => acc + line.finalPrice, 0);
+  const discountTotal = lines.reduce((acc, line) => acc + Math.max(0, line.discount), 0);
+  const allowedDiscountTotal = lines.reduce((acc, line) => acc + (line.maxDiscountSoles ?? settings.maxDiscountSoles), 0);
+  const exceedsDiscount = lines.some((line) => Math.max(0, line.discount) > (line.maxDiscountSoles ?? settings.maxDiscountSoles));
 
   const sendToCashier = () => {
     if (!user) return;
     if (lines.length === 0) return toast.error("Agrega al menos un producto");
-    if (Math.abs(remaining) > 0.01) return toast.error(`Pago no cuadra: ${remaining > 0 ? "falta" : "sobra"} ${fmtMoney(Math.abs(remaining))}`);
+    if (lines.some((line) => line.finalPrice <= 0)) return toast.error("El precio final debe ser mayor a 0");
+
     if (exceedsDiscount) {
       requestAuth({
         type: "descuento_excedido",
         requestedBy: user.id,
         requestedByName: user.name,
-        detail: `Descuento ${fmtMoney(discountTotal)} excede límite ${fmtMoney(settings.maxDiscountSoles)}`,
+        detail: `Descuento ${fmtMoney(discountTotal)} excede limite por producto ${fmtMoney(allowedDiscountTotal)}`,
         amount: discountTotal,
       });
-      toast.error("Descuento excede límite. Solicitud enviada al administrador.");
+      toast.error("Descuento excede limite. Solicitud enviada al administrador.");
       return;
     }
+
     const sale = createDraftSale({
       sellerId: user.id,
       sellerName: user.name,
@@ -170,23 +180,23 @@ export default function NewSale() {
       customerPhone: customerPhone || undefined,
       lines,
       subtotal,
-      payments,
-      totalSurcharge: surchargeTotal,
-      total,
+      payments: [],
+      totalSurcharge: 0,
+      total: subtotal,
     });
-    toast.success(`Venta ${sale.code} enviada a cobro`, { description: "El cajero la verá en 'Por cobrar'" });
+    toast.success(`Venta ${sale.code} enviada a caja`, { description: "Caja registrara el cobro en Por cobrar" });
     navigate("/ventas");
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const prefill = (loc.state as any)?.prefillUnit;
     if (prefill) addUnit(prefill);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <>
-      <PageHeader title="Nueva venta" subtitle={user ? `Vendedor: ${user.name}` : ""} />
+      <PageHeader title="Nueva venta" subtitle={user ? `Colaborador: ${user.name}` : ""} />
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
         <div className="space-y-4">
@@ -199,19 +209,26 @@ export default function NewSale() {
             </div>
             {searchResults.length > 0 && (
               <ul className="rounded-xl border border-border divide-y">
-                {searchResults.map((r) => (
-                  <li key={r.product.id} className="flex items-center justify-between px-3 py-2">
+                {searchResults.map((result) => (
+                  <li key={result.product.id} className="flex items-center justify-between px-3 py-2">
                     <div>
-                      <p className="font-medium text-sm">{r.product.brand} · {r.product.model}</p>
-                      <p className="text-xs text-muted-foreground">{r.product.color}{r.product.size ? ` · T${r.product.size}` : ""} · {fmtMoney(getProductPrices(r.product).basePrice)}</p>
+                      <p className="font-medium text-sm">{result.product.brand} - {result.product.model}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {result.product.color}{result.product.size ? ` - T${result.product.size}` : ""} - {fmtMoney(getProductPrices(result.product).basePrice)}
+                      </p>
                     </div>
                     <Button
                       size="sm"
-                      disabled={!r.code}
-                      onClick={() => { if (r.code) { addUnit(r.code); setSearch(""); } }}
+                      disabled={!result.code}
+                      onClick={() => {
+                        if (result.code) {
+                          addUnit(result.code);
+                          setSearch("");
+                        }
+                      }}
                       variant="outline"
                     >
-                      {r.code ? <><Plus className="size-3.5 mr-1" />Agregar</> : "Sin stock"}
+                      {result.code ? <><Plus className="size-3.5 mr-1" />Agregar</> : "Sin stock"}
                     </Button>
                   </li>
                 ))}
@@ -224,32 +241,36 @@ export default function NewSale() {
               <h2 className="font-display font-bold">Productos ({lines.length})</h2>
               {discountTotal > 0 && (
                 <span className={`text-xs font-semibold ${exceedsDiscount ? "text-critical" : "text-success"}`}>
-                  Descuento total: {fmtMoney(discountTotal)} / máx {fmtMoney(settings.maxDiscountSoles)}
+                  Descuento total: {fmtMoney(discountTotal)} / max {fmtMoney(allowedDiscountTotal)}
                 </span>
               )}
             </div>
             {lines.length === 0 ? (
-              <p className="p-6 text-sm text-muted-foreground text-center">Escanea o busca productos para empezar</p>
+              <p className="p-6 text-sm text-muted-foreground text-center">Escanea o busca productos disponibles en tu ubicacion</p>
             ) : (
               <ul className="divide-y divide-border/60">
-                {lines.map((l, i) => (
-                  <li key={l.unitCode} className="p-4 flex flex-col sm:flex-row gap-3 sm:items-center">
+                {lines.map((line, index) => (
+                  <li key={line.unitCode} className="p-4 flex flex-col sm:flex-row gap-3 sm:items-center">
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-mono text-muted-foreground">{l.unitCode} · {l.isPair ? "PAR" : "UNIDAD"}</p>
-                      <p className="font-medium truncate">{l.productLabel}</p>
-                      <p className="text-xs text-muted-foreground">Base {fmtMoney(l.basePrice)}</p>
+                      <p className="text-xs font-mono text-muted-foreground">{line.unitCode} - {line.isPair ? "PAR" : "UNIDAD"}</p>
+                      <p className="font-medium truncate">{line.productLabel}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Base {fmtMoney(line.basePrice)}
+                        {line.discount > 0 ? ` - Descuento ${fmtMoney(line.discount)}` : ""}
+                        {` - Max ${fmtMoney(line.maxDiscountSoles ?? settings.maxDiscountSoles)}`}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <div>
                         <Label className="text-[10px] uppercase">Precio final</Label>
                         <Input
                           type="number"
-                          value={l.finalPrice}
-                          onChange={(e) => updateLinePrice(i, +e.target.value)}
+                          value={line.finalPrice}
+                          onChange={(e) => updateLinePrice(index, +e.target.value)}
                           className="w-28 text-right font-bold"
                         />
                       </div>
-                      <Button size="icon" variant="ghost" onClick={() => removeLine(i)}><Trash2 className="size-4" /></Button>
+                      <Button size="icon" variant="ghost" onClick={() => removeLine(index)}><Trash2 className="size-4" /></Button>
                     </div>
                   </li>
                 ))}
@@ -265,56 +286,9 @@ export default function NewSale() {
             </div>
           </div>
 
-          <div className="rounded-2xl bg-card border border-border/60 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-display font-bold">Pago cobrado por vendedor</h2>
-              <span className="text-xs text-muted-foreground">El cobrador solo confirma</span>
-            </div>
-            <div className="space-y-2">
-              {payments.map((p, i) => (
-                <div key={i} className="rounded-xl border border-border p-2 space-y-1.5">
-                  <div className="flex gap-2 items-center">
-                    <select
-                      value={p.method}
-                      onChange={(e) => updatePayment(i, { method: e.target.value as PaymentMethod, surcharge: 0 })}
-                      className="flex-1 rounded-md border border-input bg-card text-sm h-9 px-2"
-                    >
-                      <option value="efectivo">💵 Efectivo</option>
-                      <option value="transferencia">🏦 Transferencia</option>
-                      <option value="yape_plin">📱 Yape/Plin</option>
-                      <option value="tarjeta">💳 Tarjeta</option>
-                    </select>
-                    <Input
-                      type="number"
-                      value={p.amount}
-                      onChange={(e) => updatePayment(i, { amount: +e.target.value })}
-                      className="w-28"
-                      placeholder="Monto"
-                    />
-                    {payments.length > 1 && (
-                      <Button size="icon" variant="ghost" onClick={() => removePayment(i)}>
-                        <Trash2 className="size-4" />
-                      </Button>
-                    )}
-                  </div>
-                  {p.method === "tarjeta" && (
-                    <label className="flex items-center justify-between text-xs gap-2 bg-secondary/50 rounded-md px-2 py-1.5">
-                      <span className="flex items-center gap-1.5">
-                        <CreditCard className="size-3.5" />Recargo {settings.cardSurchargePct}%
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={(p.surcharge || 0) > 0}
-                        onChange={(e) => applyCardSurcharge(i, e.target.checked)}
-                      />
-                    </label>
-                  )}
-                </div>
-              ))}
-              <Button variant="outline" size="sm" onClick={addPayment} className="w-full">
-                <ArrowLeftRight className="size-4 mr-1" /> Agregar pago mixto
-              </Button>
-            </div>
+          <div className="rounded-2xl bg-card border border-border/60 p-4 text-sm text-muted-foreground">
+            <p className="font-semibold text-foreground">Cobro separado</p>
+            <p>El colaborador registra la operacion comercial. Caja registrara metodo de pago, recargos y conciliacion en Por cobrar.</p>
           </div>
         </div>
 
@@ -334,43 +308,30 @@ export default function NewSale() {
               <span className="opacity-70">Subtotal</span>
               <span>{fmtMoney(subtotal)}</span>
             </div>
-            {surchargeTotal > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="opacity-70">Recargo tarjeta</span>
-                <span>+{fmtMoney(surchargeTotal)}</span>
-              </div>
-            )}
             <div className="flex justify-between font-display font-extrabold text-2xl pt-1 border-t border-background/20">
-              <span>Total</span>
-              <span className="text-accent">{fmtMoney(total)}</span>
+              <span>Total comercial</span>
+              <span className="text-accent">{fmtMoney(subtotal)}</span>
             </div>
-            <div className="flex justify-between text-xs"><span className="opacity-70">Pagado</span><span>{fmtMoney(paid)}</span></div>
-            {Math.abs(remaining) > 0.01 && (
-              <div className={`flex justify-between text-xs font-semibold ${remaining > 0 ? "text-critical" : "text-accent"}`}>
-                <span>{remaining > 0 ? "Falta" : "Sobra"}</span>
-                <span>{fmtMoney(Math.abs(remaining))}</span>
-              </div>
-            )}
             {exceedsDiscount && (
               <div className="rounded-lg bg-critical/20 text-background p-2 text-xs flex items-start gap-2 mt-2">
                 <ShieldAlert className="size-4 shrink-0 mt-0.5" />
-                <span>Descuento excede el máximo permitido. Requiere autorización.</span>
+                <span>Descuento excede el maximo permitido. Requiere autorizacion.</span>
               </div>
             )}
             <Button
               onClick={sendToCashier}
-              disabled={lines.length === 0 || Math.abs(remaining) > 0.01}
+              disabled={lines.length === 0}
               className="w-full h-12 mt-2 bg-gradient-gold text-accent-foreground hover:opacity-90 font-bold"
             >
-              <Send className="size-5 mr-2" /> Enviar al cajero
+              <Send className="size-5 mr-2" /> Enviar a caja
             </Button>
           </div>
 
           <div className="rounded-2xl bg-card border border-border/60 p-4 text-xs text-muted-foreground space-y-1.5">
             <p className="font-semibold text-foreground">Flujo de la venta</p>
-            <p>1. Tú armas la venta, cobras y registras el método de pago.</p>
-            <p>2. Queda <span className="font-semibold text-gold">Por cobrar</span>.</p>
-            <p>3. El cobrador revisa cómo se vendió, cuánto se cobró y confirma.</p>
+            <p>1. Colaborador registra producto, cliente y precio comercial.</p>
+            <p>2. La venta queda <span className="font-semibold text-gold">Por cobrar</span>.</p>
+            <p>3. Caja registra el pago, concilia y confirma.</p>
           </div>
         </div>
       </div>

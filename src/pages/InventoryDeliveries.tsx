@@ -1,21 +1,40 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { PageHeader } from "@/components/AppShell";
 import { useAppStore, useCurrentUser } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { isPairCode, QRScanner } from "@/components/QRScanner";
 import { toast } from "sonner";
 import { fmtDateTime } from "@/lib/format";
-import { operationalRoleFor } from "@/lib/types";
+import { isLocationActive, LOCATION_TYPE_LABELS, operationalRoleFor, ROLE_LABELS } from "@/lib/types";
 
 export default function InventoryDeliveries() {
+  const loc = useLocation();
   const inventory = useAppStore((s) => s.inventory);
+  const locations = useAppStore((s) => s.locations);
   const movements = useAppStore((s) => s.movements).filter((m) => m.type === "entrega");
   const deliver = useAppStore((s) => s.deliverFromWarehouse);
   const user = useCurrentUser();
+  const activeLocations = locations.filter(isLocationActive);
 
   const [codes, setCodes] = useState<string[]>([]);
   const [received, setReceived] = useState("");
+  const [toLocationId, setToLocationId] = useState(activeLocations[0]?.id || "");
+
+  useEffect(() => {
+    const prefill = (loc.state as any)?.prefillUnit;
+    if (prefill) addCode(prefill);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addCode = (c: string) => {
     const code = c.toUpperCase();
@@ -31,7 +50,7 @@ export default function InventoryDeliveries() {
     if (!user) return;
     if (codes.length === 0 || !received) return toast.error("Indica códigos y quién recibe");
     try {
-      deliver(codes, user.id, user.name, operationalRoleFor(user, "almacen"), received);
+      deliver(codes, user.id, user.name, operationalRoleFor(user, "almacen"), received, toLocationId);
       toast.success("Entrega registrada");
       setCodes([]);
       setReceived("");
@@ -59,7 +78,20 @@ export default function InventoryDeliveries() {
               </ul>
             }
           </div>
-          <Input placeholder="Vendedor que recibe (nombre exacto)" value={received} onChange={(e) => setReceived(e.target.value)} />
+          <Input placeholder="Quien recibe (usuario u otros, nombre exacto)" value={received} onChange={(e) => setReceived(e.target.value)} />
+          <div>
+            <Label>Ubicacion destino para otros</Label>
+            <Select value={toLocationId} onValueChange={setToLocationId}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {activeLocations.map((location) => (
+                  <SelectItem key={location.id} value={location.id}>
+                    {location.name} ({LOCATION_TYPE_LABELS[location.type]})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <Button onClick={submit} className="w-full bg-foreground text-background hover:bg-foreground/90">Registrar entrega</Button>
         </div>
         <div className="rounded-2xl bg-card border overflow-hidden">
@@ -69,7 +101,11 @@ export default function InventoryDeliveries() {
               {movements.map((mv) => (
                 <li key={mv.id} className="px-4 py-3 text-sm">
                   <p className="font-mono text-xs">{mv.unitCodes.join(", ")}</p>
-                  <p className="text-xs text-muted-foreground">{mv.byUserName}{mv.byUserRole ? ` (${mv.byUserRole})` : ""} → {mv.receivedBy} · {fmtDateTime(mv.timestamp)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {mv.byUserName}{mv.byUserRole ? ` (${ROLE_LABELS[mv.byUserRole]})` : ""} → {mv.receivedBy}
+                    {mv.toLocationId ? ` - ${locations.find((location) => location.id === mv.toLocationId)?.name || "Destino"}` : ""}
+                    {" "}· {fmtDateTime(mv.timestamp)}
+                  </p>
                 </li>
               ))}
             </ul>

@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Link } from "react-router-dom";
-import { Package, Truck, AlertTriangle, ArrowDownToLine, ScanLine, Sparkles } from "lucide-react";
+import { Package, Truck, AlertTriangle, ArrowDownToLine, ScanLine, Store, SlidersHorizontal } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { QRImage } from "@/components/QRImage";
 import {
@@ -32,8 +32,9 @@ export default function Inventory() {
   const canTransfer = useCan("inventory.transfer");
   const canDelivery = useCan("inventory.delivery");
   const canFault = useCan("inventory.fault");
-  const canSample = useCan("inventory.sample");
-  const showQuickTiles = canTransfer || canDelivery || canFault || canSample;
+  const canAdjust = useCan("inventory.adjust");
+  const canStorefront = useCan("inventory.storefront");
+  const showQuickTiles = canTransfer || canDelivery || canFault || canAdjust || canStorefront;
 
   const [search, setSearch] = useState("");
   const [locFilter, setLocFilter] = useState("todos");
@@ -87,7 +88,7 @@ export default function Inventory() {
       />
 
       {showQuickTiles && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 mb-4">
           {canTransfer && (
             <Link to="/inventario/traslados" className="quick-tile">
               <Truck className="size-5 text-accent" />
@@ -106,10 +107,16 @@ export default function Inventory() {
               <p className="font-semibold text-sm">Fallas</p>
             </Link>
           )}
-          {canSample && (
-            <Link to="/inventario/muestras" className="quick-tile">
-              <Sparkles className="size-5 text-gold" />
-              <p className="font-semibold text-sm">Muestras</p>
+          {canAdjust && (
+            <Link to="/inventario/ajustes" className="quick-tile">
+              <SlidersHorizontal className="size-5 text-accent" />
+              <p className="font-semibold text-sm">Ajustes</p>
+            </Link>
+          )}
+          {canStorefront && (
+            <Link to="/inventario/tienda" className="quick-tile">
+              <Store className="size-5 text-gold" />
+              <p className="font-semibold text-sm">En tienda</p>
             </Link>
           )}
         </div>
@@ -128,9 +135,10 @@ export default function Inventory() {
           <SelectContent>
             <SelectItem value="todos">Todos los estados</SelectItem>
             <SelectItem value="disponible">Disponibles</SelectItem>
+            <SelectItem value="reservado">Reservados</SelectItem>
             <SelectItem value="vendido">Vendidos</SelectItem>
-            <SelectItem value="muestra">Muestra</SelectItem>
             <SelectItem value="con_falla">Con falla</SelectItem>
+            <SelectItem value="bloqueado">Bloqueados</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -158,6 +166,7 @@ export default function Inventory() {
                 {Object.entries(pairs).map(([code, p]) => {
                   const status: any = p.d?.status === "disponible" && p.i?.status === "disponible" ? "disponible" : (p.d?.status || p.i?.status);
                   const loc = locations.find((l) => l.id === (p.d?.locationId || p.i?.locationId))?.name;
+                  const responsible = p.d?.responsibleName || p.i?.responsibleName;
                   return (
                     <button
                       key={code}
@@ -168,7 +177,7 @@ export default function Inventory() {
                         <span className="font-mono font-bold text-xs">{code}</span>
                         <StatusBadge kind={status} />
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-1">{loc}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">{loc}{responsible ? ` - ${responsible}` : ""}</p>
                     </button>
                   );
                 })}
@@ -184,7 +193,7 @@ export default function Inventory() {
                         <span className="font-mono font-bold text-xs">{u.unitCode}</span>
                         <StatusBadge kind={u.status} />
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-1">{loc}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">{loc}{u.responsibleName ? ` - ${u.responsibleName}` : ""}</p>
                     </button>
                   );
                 })}

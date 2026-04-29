@@ -16,21 +16,33 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StatusBadge } from "@/components/StatusBadge";
-import { formatUserRoles, getUserRoles, ROLE_LABELS, type Role } from "@/lib/types";
+import {
+  formatUserRoles,
+  getUserRoles,
+  isLocationActive,
+  LOCATION_TYPE_LABELS,
+  normalizeUserRoles,
+  ROLE_LABELS,
+  SECONDARY_ROLE_COMBINATIONS,
+  type Role,
+} from "@/lib/types";
 import { Plus, Power, MapPin, Phone, IdCard } from "lucide-react";
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/format";
 
-const ROLES: Role[] = ["admin", "vendedor", "cajero", "almacen", "administrativo"];
+const ROLES: Role[] = ["admin", "vendedor", "cajero", "almacen"];
+
+const rolesForPrimary = (role: Role, currentRoles: Role[] = [role]): Role[] =>
+  normalizeUserRoles({ role, roles: currentRoles });
 
 export default function Users() {
   const user = useCurrentUser();
   const users = useAppStore((s) => s.users);
   const locations = useAppStore((s) => s.locations);
+  const activeLocations = locations.filter(isLocationActive);
   const addUser = useAppStore((s) => s.addUser);
   const updateUser = useAppStore((s) => s.updateUser);
   const toggleActive = useAppStore((s) => s.toggleUserActive);
@@ -43,7 +55,7 @@ export default function Users() {
     phone: "",
     role: "vendedor" as Role,
     roles: ["vendedor"] as Role[],
-    locationId: locations[0]?.id || "",
+    locationId: activeLocations[0]?.id || "",
     active: true,
   });
 
@@ -54,7 +66,7 @@ export default function Users() {
       <>
         <PageHeader title="Usuarios" />
         <div className="rounded-2xl bg-card border p-8 text-center text-muted-foreground">
-          Solo el Administrador puede gestionar usuarios.
+          Solo el Administrador general puede gestionar usuarios.
         </div>
       </>
     );
@@ -62,7 +74,7 @@ export default function Users() {
 
   const openNew = () => {
     setEditingId(null);
-    setForm({ name: "", dni: "", phone: "", role: "vendedor", roles: ["vendedor"], locationId: locations[0]?.id || "", active: true });
+    setForm({ name: "", dni: "", phone: "", role: "vendedor", roles: rolesForPrimary("vendedor"), locationId: activeLocations[0]?.id || "", active: true });
     setOpen(true);
   };
 
@@ -70,7 +82,8 @@ export default function Users() {
     const u = users.find((x) => x.id === id);
     if (!u) return;
     setEditingId(id);
-    setForm({ name: u.name, dni: u.dni || "", phone: u.phone || "", role: u.role, roles: getUserRoles(u), locationId: u.locationId, active: u.active });
+    const roles = normalizeUserRoles(u);
+    setForm({ name: u.name, dni: u.dni || "", phone: u.phone || "", role: roles[0], roles, locationId: u.locationId, active: u.active });
     setOpen(true);
   };
 
@@ -79,11 +92,16 @@ export default function Users() {
       toast.error("Nombre requerido");
       return;
     }
+    if (!form.locationId) {
+      toast.error("Selecciona una ubicación");
+      return;
+    }
+    const roles = normalizeUserRoles({ role: form.role, roles: form.roles });
     if (editingId) {
-      updateUser(editingId, { ...form, role: form.roles[0], roles: form.roles });
+      updateUser(editingId, { ...form, role: roles[0], roles });
       toast.success("Usuario actualizado");
     } else {
-      addUser({ ...form, role: form.roles[0], roles: form.roles });
+      addUser({ ...form, role: roles[0], roles });
       toast.success("Usuario creado");
     }
     setOpen(false);
@@ -163,7 +181,7 @@ export default function Users() {
               <Label>Rol principal</Label>
               <Select value={form.role} onValueChange={(v) => {
                 const role = v as Role;
-                setForm({ ...form, role, roles: role === "vendedor" && form.roles.includes("almacen") ? ["vendedor", "almacen"] : [role] });
+                setForm({ ...form, role, roles: rolesForPrimary(role, form.roles) });
               }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -171,24 +189,34 @@ export default function Users() {
                 </SelectContent>
               </Select>
             </div>
-            {form.role === "vendedor" && (
-              <label className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm">
-                <Checkbox
-                  checked={form.roles.includes("almacen")}
-                  onCheckedChange={(checked) => setForm({
-                    ...form,
-                    roles: checked ? ["vendedor", "almacen"] : ["vendedor"],
-                  })}
-                />
-                <span>Agregar rol secundario de Almacén</span>
-              </label>
-            )}
+            <div>
+              <Label>Rol secundario</Label>
+              {SECONDARY_ROLE_COMBINATIONS[form.role]?.includes("almacen") ? (
+                <label className="mt-1 flex items-center gap-2 rounded-lg border border-border p-3 text-sm">
+                  <Checkbox
+                    checked={form.roles.includes("almacen")}
+                    onCheckedChange={(checked) => setForm({
+                      ...form,
+                      roles: rolesForPrimary(
+                        form.role,
+                        checked ? [...form.roles, "almacen"] : form.roles.filter((role) => role !== "almacen")
+                      ),
+                    })}
+                  />
+                  <span>Almacén</span>
+                </label>
+              ) : (
+                <div className="mt-1 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm text-muted-foreground">
+                  No aplica
+                </div>
+              )}
+            </div>
             <div>
               <Label>Ubicación</Label>
               <Select value={form.locationId} onValueChange={(v) => setForm({ ...form, locationId: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {locations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name} ({l.type})</SelectItem>)}
+                  {activeLocations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name} ({LOCATION_TYPE_LABELS[l.type]})</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

@@ -23,14 +23,20 @@ export default function Reports() {
   const auths = useAppStore((s) => s.authorizations);
   const products = useAppStore((s) => s.products);
   const locations = useAppStore((s) => s.locations);
+  const confirmedSales = sales.filter((sale) => sale.status === "confirmada");
+  const utilityTotal = confirmedSales.reduce(
+    (acc, sale) => acc + (sale.utilityTotal ?? sale.lines.reduce((lineAcc, line) => lineAcc + (line.utility ?? line.finalPrice - (line.cost ?? 0)), 0)),
+    0
+  );
 
   return (
     <>
-      <PageHeader title="Reportes" subtitle="Datos del prototipo (mock + locales)" />
+      <PageHeader title="Reportes" subtitle="Ventas, inventario, movimientos y trazabilidad" />
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-6">
         <StatCard label="Hoy" value={fmtMoney(m.todayRevenue)} icon={TrendingUp} tone="gold" />
         <StatCard label="Semana" value={fmtMoney(m.weekRevenue)} icon={ShoppingCart} />
+        <StatCard label="Utilidad" value={fmtMoney(utilityTotal)} icon={TrendingUp} tone="gold" />
         <StatCard label="Stock total" value={inventory.length} icon={Package} />
         <StatCard label="Asistencia hoy" value={m.attendanceToday} icon={ClipboardCheck} />
         <StatCard label="Fallas" value={m.faulty} icon={AlertTriangle} tone="critical" />
@@ -49,7 +55,10 @@ export default function Reports() {
         <TabsContent value="ventas" className="mt-4">
           <ListCard
             empty="Sin ventas"
-            items={sales.map((s) => ({ key: s.id, left: `${s.code} · ${s.sellerName}`, sub: fmtDateTime(s.timestamp), right: fmtMoney(s.total), badge: s.status }))}
+            items={sales.map((s) => {
+              const utility = s.utilityTotal ?? s.lines.reduce((acc, line) => acc + (line.utility ?? line.finalPrice - (line.cost ?? 0)), 0);
+              return { key: s.id, left: `${s.code} · ${s.sellerName}`, sub: `${fmtDateTime(s.timestamp)} · utilidad ${fmtMoney(utility)}`, right: fmtMoney(s.total), badge: s.status };
+            })}
           />
         </TabsContent>
         <TabsContent value="inventario" className="mt-4">

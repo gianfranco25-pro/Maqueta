@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { PageHeader } from "@/components/AppShell";
 import { useAppStore, useCurrentUser } from "@/lib/store";
 import { Button } from "@/components/ui/button";
@@ -14,18 +15,26 @@ import {
 import { isPairCode, QRScanner } from "@/components/QRScanner";
 import { toast } from "sonner";
 import { fmtDateTime } from "@/lib/format";
-import { operationalRoleFor } from "@/lib/types";
+import { isLocationActive, LOCATION_TYPE_LABELS, operationalRoleFor, ROLE_LABELS } from "@/lib/types";
 
 export default function InventoryTransfers() {
+  const loc = useLocation();
   const inventory = useAppStore((s) => s.inventory);
   const movements = useAppStore((s) => s.movements).filter((m) => m.type === "traslado");
   const locations = useAppStore((s) => s.locations);
   const transfer = useAppStore((s) => s.transferItems);
   const user = useCurrentUser();
+  const activeLocations = locations.filter(isLocationActive);
 
   const [codes, setCodes] = useState<string[]>([]);
-  const [toLoc, setToLoc] = useState(locations[0]?.id || "");
+  const [toLoc, setToLoc] = useState(activeLocations[0]?.id || "");
   const [received, setReceived] = useState("");
+
+  useEffect(() => {
+    const prefill = (loc.state as any)?.prefillUnit;
+    if (prefill) addCode(prefill);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addCode = (c: string) => {
     const code = c.toUpperCase();
@@ -74,7 +83,7 @@ export default function InventoryTransfers() {
             <Select value={toLoc} onValueChange={setToLoc}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {locations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                {activeLocations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name} ({LOCATION_TYPE_LABELS[l.type]})</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -92,7 +101,7 @@ export default function InventoryTransfers() {
               {movements.map((mv) => (
                 <li key={mv.id} className="px-4 py-3 text-sm">
                   <p className="font-mono text-xs">{mv.unitCodes.join(", ")}</p>
-                  <p className="text-xs text-muted-foreground">{mv.byUserName}{mv.byUserRole ? ` (${mv.byUserRole})` : ""}{mv.receivedBy ? ` → ${mv.receivedBy}` : ""} · {fmtDateTime(mv.timestamp)}</p>
+                  <p className="text-xs text-muted-foreground">{mv.byUserName}{mv.byUserRole ? ` (${ROLE_LABELS[mv.byUserRole]})` : ""}{mv.receivedBy ? ` → ${mv.receivedBy}` : ""} · {fmtDateTime(mv.timestamp)}</p>
                 </li>
               ))}
             </ul>

@@ -16,16 +16,22 @@ export function isPairCode(code: string) {
   return /^A\d{5}$/.test(code);
 }
 
+export function isSaleCode(code: string) {
+  return /^V-\d{4}$/.test(code);
+}
+
 export function QRScanner({
   onResult,
   onClose,
   expectedHint,
   allowPairCodes = false,
+  allowSaleCodes = false,
 }: {
   onResult: (code: string) => void;
   onClose?: () => void;
   expectedHint?: string;
   allowPairCodes?: boolean;
+  allowSaleCodes?: boolean;
 }) {
   const [mode, setMode] = useState<"camera" | "manual">("camera");
   const [manual, setManual] = useState("");
@@ -78,9 +84,9 @@ export function QRScanner({
   }, [mode]);
 
   const handleResult = (code: string) => {
-    if (!isValidUnitCode(code) && !(allowPairCodes && isPairCode(code))) {
+    if (!isValidUnitCode(code) && !(allowPairCodes && isPairCode(code)) && !(allowSaleCodes && isSaleCode(code))) {
       toast.error(`Código inválido: ${code}`, {
-        description: allowPairCodes ? "Formato esperado: A00001, A00001-D, A00001-I o B00001" : "Formato esperado: A00001-D, A00001-I o B00001",
+        description: allowSaleCodes ? "Formato esperado: V-0001, A00001, A00001-D, A00001-I o B00001" : allowPairCodes ? "Formato esperado: A00001, A00001-D, A00001-I o B00001" : "Formato esperado: A00001-D, A00001-I o B00001",
       });
       return;
     }
@@ -160,14 +166,14 @@ export function QRScanner({
             autoFocus
             value={manual}
             onChange={(e) => setManual(e.target.value.toUpperCase())}
-            placeholder={allowPairCodes ? "Ej: A00001, A00001-D o B00001" : "Ej: A00001-D, A00001-I o B00001"}
+            placeholder={allowSaleCodes ? "Ej: V-0001, A00001-D o B00001" : allowPairCodes ? "Ej: A00001, A00001-D o B00001" : "Ej: A00001-D, A00001-I o B00001"}
             className="text-center text-lg tracking-wider font-mono h-14"
           />
           <Button type="submit" className="w-full h-12 bg-foreground text-background hover:bg-foreground/90">
             <CheckCircle2 className="size-4 mr-2" /> Confirmar código
           </Button>
           <p className="text-xs text-muted-foreground text-center">
-            Formatos válidos: {allowPairCodes && <><span className="font-mono">A00001</span>, </>}<span className="font-mono">A00001-D</span>,{" "}
+            Formatos válidos: {allowSaleCodes && <><span className="font-mono">V-0001</span>, </>}{allowPairCodes && <><span className="font-mono">A00001</span>, </>}<span className="font-mono">A00001-D</span>,{" "}
             <span className="font-mono">A00001-I</span>, <span className="font-mono">B00001</span>
           </p>
         </form>

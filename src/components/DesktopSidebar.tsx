@@ -1,14 +1,14 @@
 import { NavLink } from "@/components/NavLink";
 import { Brand } from "@/components/Brand";
-import { useCurrentUser } from "@/lib/store";
+import { useCurrentRole, useCurrentUser } from "@/lib/store";
 import { navigationForUser } from "@/lib/navigation";
-import { LogOut } from "lucide-react";
-import { formatUserRoles } from "@/lib/types";
+import { ROLE_LABELS } from "@/lib/types";
 
 export function DesktopSidebar() {
   const user = useCurrentUser();
+  const role = useCurrentRole();
   if (!user) return null;
-  const items = navigationForUser(user);
+  const items = navigationForUser(user, role);
 
   return (
     <aside className="hidden lg:flex flex-col w-64 shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
@@ -39,17 +39,14 @@ export function DesktopSidebar() {
           <div className="size-9 rounded-full bg-sidebar-primary text-sidebar-primary-foreground grid place-items-center font-bold text-sm">
             {user.name
               .split(" ")
-              .map((n) => n[0])
+              .map((name) => name[0])
               .slice(0, 2)
               .join("")}
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium truncate">{user.name}</p>
-            <p className="text-xs text-sidebar-foreground/60 truncate">{formatUserRoles(user)}</p>
+            <p className="text-xs text-sidebar-foreground/60 truncate">{role ? ROLE_LABELS[role] : ""}</p>
           </div>
-          <button className="text-sidebar-foreground/50 hover:text-sidebar-foreground" title="Sesión simulada">
-            <LogOut className="size-4" />
-          </button>
         </div>
       </div>
     </aside>

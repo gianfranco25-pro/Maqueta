@@ -14,6 +14,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { QRImage } from "@/components/QRImage";
+import { isLocationActive, isStorageLocation, LOCATION_TYPE_LABELS } from "@/lib/types";
 
 export default function InventoryEntry() {
   const products = useAppStore((s) => s.products);
@@ -21,9 +22,10 @@ export default function InventoryEntry() {
   const addPair = useAppStore((s) => s.addShoePair);
   const addAccs = useAppStore((s) => s.addAccessoryUnits);
   const navigate = useNavigate();
+  const activeLocations = locations.filter(isLocationActive);
 
   const [productId, setProductId] = useState(products[0]?.id || "");
-  const [locationId, setLocationId] = useState(locations.find((l) => l.type === "almacen")?.id || locations[0]?.id || "");
+  const [locationId, setLocationId] = useState(activeLocations.find(isStorageLocation)?.id || activeLocations[0]?.id || "");
   const [qty, setQty] = useState(1);
   const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
 
@@ -74,7 +76,7 @@ export default function InventoryEntry() {
             <Select value={locationId} onValueChange={setLocationId}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {locations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                {activeLocations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name} ({LOCATION_TYPE_LABELS[l.type]})</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

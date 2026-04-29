@@ -28,12 +28,13 @@ export default function Sales() {
   const canCreate = useCan("sales.create");
   const canCollect = useCan("sales.collect");
   const canCancel = useCan("sales.cancel");
+  const canViewProfit = useCan("profit.view");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState("");
   const [filter, setFilter] = useState<Filter>("todas");
 
-  // Vendedor: solo ve sus propias ventas
+  // Colaborador: solo ve sus propias ventas
   const sales = useMemo(
     () => (canViewAll ? allSales : allSales.filter((s) => s.sellerId === user?.id)),
     [allSales, canViewAll, user?.id]
@@ -71,7 +72,7 @@ export default function Sales() {
             <TabsTrigger value="anulada" className="text-xs">Anuladas <span className="ml-1 opacity-60">{counts.anulada}</span></TabsTrigger>
           </TabsList>
         </Tabs>
-        <Input placeholder="Buscar por código, vendedor o cliente" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <Input placeholder="Buscar por código, colaborador o cliente" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
       <div className="rounded-2xl bg-card border border-border/60 overflow-hidden">
@@ -108,7 +109,7 @@ export default function Sales() {
           <DialogHeader><DialogTitle className="flex items-center gap-2"><Receipt className="size-5" />{sale?.code}</DialogTitle></DialogHeader>
           {sale && (
             <div className="space-y-3 text-sm">
-              <p><strong>Vendedor:</strong> {sale.sellerName}</p>
+              <p><strong>Colaborador:</strong> {sale.sellerName}</p>
               {sale.customerPhone && <p><strong>Cliente:</strong> {sale.customerPhone}</p>}
               <p><strong>Fecha:</strong> {fmtDateTime(sale.timestamp)}</p>
               <div className="rounded-lg border p-3 space-y-1.5">
@@ -119,6 +120,15 @@ export default function Sales() {
                   </div>
                 ))}
               </div>
+              {canViewProfit && (
+                <div className="rounded-lg border p-3 space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span>Utilidad de la venta</span>
+                    <strong>{fmtMoney(sale.utilityTotal ?? sale.lines.reduce((acc, line) => acc + (line.utility ?? line.finalPrice - (line.cost ?? 0)), 0))}</strong>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Utilidad = precio final vendido - costo.</p>
+                </div>
+              )}
               {sale.payments.length > 0 && (
                 <div className="rounded-lg border p-3 space-y-1.5">
                   {sale.payments.map((p, i) => (

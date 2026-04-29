@@ -1,10 +1,12 @@
 import { useMemo } from "react";
 import { useAppStore, useCurrentUser } from "@/lib/store";
 import { startOfWeek, endOfWeek, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { isOperationalLocation } from "@/lib/types";
 
 export function useDashboardMetrics() {
   const sales = useAppStore((s) => s.sales);
   const inventory = useAppStore((s) => s.inventory);
+  const locations = useAppStore((s) => s.locations);
   const attendance = useAppStore((s) => s.attendance);
   const settings = useAppStore((s) => s.settings);
   const authorizations = useAppStore((s) => s.authorizations);
@@ -33,7 +35,18 @@ export function useDashboardMetrics() {
     const availableShoes = inventory.filter((i) => i.status === "disponible" && i.side).length / 2;
     const availableAcc = inventory.filter((i) => i.status === "disponible" && !i.side).length;
     const faulty = inventory.filter((i) => i.status === "con_falla").length;
-    const samples = inventory.filter((i) => i.status === "muestra").length;
+    const storeLocationIds = new Set(locations.filter(isOperationalLocation).map((l) => l.id));
+    const storeItems = inventory.filter((i) => i.status === "disponible" && storeLocationIds.has(i.locationId));
+    const storePairsByCode = storeItems
+      .filter((i) => i.side && i.pairCode)
+      .reduce<Record<string, { d: boolean; i: boolean }>>((acc, item) => {
+        acc[item.pairCode!] ||= { d: false, i: false };
+        if (item.side === "D") acc[item.pairCode!].d = true;
+        if (item.side === "I") acc[item.pairCode!].i = true;
+        return acc;
+      }, {});
+    const inStore = Object.values(storePairsByCode).filter((pair) => pair.d && pair.i).length
+      + storeItems.filter((i) => !i.side).length;
 
     const attendanceToday = attendance.filter((a) =>
       isWithinInterval(new Date(a.timestamp), { start: todayStart, end: todayEnd })
@@ -49,12 +62,12 @@ export function useDashboardMetrics() {
       availableShoes: Math.floor(availableShoes),
       availableAcc,
       faulty,
-      samples,
+      inStore,
       attendanceToday: attendanceToday.length,
       pendingAuth,
       lowStockThreshold: settings.lowStockThreshold,
     };
-  }, [sales, inventory, attendance, settings, authorizations]);
+  }, [sales, inventory, locations, attendance, settings, authorizations]);
 }
 
 export function useMyCommission() {
@@ -69,15 +82,17 @@ export function useMyCommission() {
     const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
     const mine = sales.filter((s) => s.sellerId === user.id && s.status === "confirmada");
     const pairs = mine.reduce((a, s) => a + s.lines.filter((l) => l.isPair).length, 0);
+    const total = mine.reduce((a, s) => a + (s.commissionTotal ?? s.lines.filter((l) => l.isPair).length * settings.commissionPerPair), 0);
     const weekMine = mine.filter((s) =>
       isWithinInterval(new Date(s.timestamp), { start: weekStart, end: weekEnd })
     );
     const weekPairs = weekMine.reduce((a, s) => a + s.lines.filter((l) => l.isPair).length, 0);
+    const weekTotal = weekMine.reduce((a, s) => a + (s.commissionTotal ?? s.lines.filter((l) => l.isPair).length * settings.commissionPerPair), 0);
     return {
       pairs,
-      total: pairs * settings.commissionPerPair,
+      total,
       weekPairs,
-      weekTotal: weekPairs * settings.commissionPerPair,
+      weekTotal,
       sales: mine,
       weekSales: weekMine,
     };

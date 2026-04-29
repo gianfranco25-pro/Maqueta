@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { PageHeader } from "@/components/AppShell";
 import { useAppStore, useCurrentUser } from "@/lib/store";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { toast } from "sonner";
 import { operationalRoleFor } from "@/lib/types";
 
 export default function InventoryFaults() {
+  const loc = useLocation();
   const inventory = useAppStore((s) => s.inventory);
   const products = useAppStore((s) => s.products);
   const markFault = useAppStore((s) => s.markAsFault);
@@ -16,6 +18,11 @@ export default function InventoryFaults() {
 
   const [code, setCode] = useState("");
   const [reason, setReason] = useState("");
+
+  useEffect(() => {
+    const prefill = (loc.state as any)?.prefillUnit;
+    if (prefill) setCode(prefill);
+  }, [loc.state]);
 
   const faulty = inventory.filter((i) => i.status === "con_falla");
 

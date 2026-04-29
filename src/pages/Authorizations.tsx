@@ -14,7 +14,7 @@ export default function Authorizations() {
 
   return (
     <>
-      <PageHeader title="Autorizaciones" subtitle="Solicitudes administrativas" />
+      <PageHeader title="Autorizaciones" subtitle="Solicitudes de autorizacion" />
       <div className="rounded-2xl bg-card border overflow-hidden">
         {auths.length === 0 ? (
           <p className="p-8 text-center text-muted-foreground text-sm">No hay solicitudes</p>

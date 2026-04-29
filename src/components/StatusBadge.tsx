@@ -4,9 +4,8 @@ import { cn } from "@/lib/utils";
 export type StatusKind =
   | "disponible"
   | "vendido"
-  | "muestra"
   | "con_falla"
-  | "trasladado"
+  | "bloqueado"
   | "reservado"
   | "pendiente"
   | "pendiente_cobro"
@@ -24,9 +23,8 @@ export type StatusKind =
 const styles: Record<StatusKind, string> = {
   disponible: "bg-success-soft text-success border-success/30",
   vendido: "bg-muted text-muted-foreground border-border",
-  muestra: "bg-gold-soft text-gold border-gold/30",
   con_falla: "bg-critical-soft text-critical border-critical/30",
-  trasladado: "bg-blue-100 text-blue-800 border-blue-300",
+  bloqueado: "bg-slate-200 text-slate-800 border-slate-300",
   reservado: "bg-amber-100 text-amber-800 border-amber-300",
   pendiente: "bg-gold-soft text-gold border-gold/30",
   pendiente_cobro: "bg-gold-soft text-gold border-gold/30",
@@ -45,9 +43,8 @@ const styles: Record<StatusKind, string> = {
 const labels: Partial<Record<StatusKind, string>> = {
   disponible: "Disponible",
   vendido: "Vendido",
-  muestra: "Muestra",
   con_falla: "Con falla",
-  trasladado: "Trasladado",
+  bloqueado: "Bloqueado",
   reservado: "Reservado",
   pendiente: "Pendiente",
   pendiente_cobro: "Por cobrar",
