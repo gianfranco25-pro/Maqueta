@@ -26,8 +26,6 @@ export type Capability =
   | "inventory.transfer"
   | "inventory.delivery"
   | "inventory.fault"
-  | "inventory.adjust"
-  | "inventory.storefront"
   | "inventory.qr.generate"
   | "inventory.scan"
   // Catálogo y precios
@@ -65,8 +63,6 @@ const ALL: Capability[] = [
   "inventory.transfer",
   "inventory.delivery",
   "inventory.fault",
-  "inventory.adjust",
-  "inventory.storefront",
   "inventory.qr.generate",
   "inventory.scan",
   "catalog.view",
@@ -88,6 +84,7 @@ export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
   admin: ALL,
   vendedor: [
     "attendance.mark",
+    "sales.view.own",
     "sales.create",
     "sales.price.edit",
     "aftersales.exchange",
@@ -111,8 +108,6 @@ export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
     "inventory.transfer",
     "inventory.delivery",
     "inventory.fault",
-    "inventory.adjust",
-    "inventory.storefront",
     "inventory.qr.generate",
     "inventory.scan",
   ],
@@ -138,8 +133,6 @@ export const ROUTE_CAPABILITIES: Record<string, Capability | Capability[]> = {
   "/inventario/traslados": "inventory.transfer",
   "/inventario/entregas": "inventory.delivery",
   "/inventario/fallas": "inventory.fault",
-  "/inventario/ajustes": "inventory.adjust",
-  "/inventario/tienda": "inventory.storefront",
   "/escanear": "inventory.scan",
   "/ventas": ["sales.view.own", "sales.view.all"], // colaborador ve solo las suyas (filtrado en página)
   "/ventas/nueva": "sales.create",

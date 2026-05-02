@@ -13,20 +13,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CheckCircle2, CreditCard, Receipt, Trash2, XCircle, ArrowLeftRight } from "lucide-react";
-import type { PaymentMethod, PaymentSplit } from "@/lib/types";
+import { CheckCircle2, CreditCard, Receipt, XCircle } from "lucide-react";
 import { operationalRoleFor } from "@/lib/types";
 import { toast } from "sonner";
 import { useCan } from "@/components/Can";
-
-const METHOD_LABEL: Record<PaymentMethod, string> = {
-  efectivo: "Efectivo",
-  transferencia: "Transferencia",
-  yape_plin: "Yape/Plin",
-  tarjeta: "Tarjeta",
-};
-
-const emptyPayment = (): PaymentSplit => ({ method: "efectivo", amount: 0 });
 
 export default function PendingPayments() {
   const loc = useLocation();
@@ -43,12 +33,11 @@ export default function PendingPayments() {
   );
 
   const [openId, setOpenId] = useState<string | null>(null);
-  const [payments, setPayments] = useState<PaymentSplit[]>([emptyPayment()]);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
 
   const sale = openId ? pending.find((item) => item.id === openId) : null;
-  const normalizedPayments = payments.map((payment) => {
+  const normalizedPayments = (sale?.payments || []).map((payment) => {
     const amount = Number.isFinite(payment.amount) ? payment.amount : 0;
     return {
       ...payment,
@@ -63,8 +52,6 @@ export default function PendingPayments() {
 
   const openSale = (id: string) => {
     setOpenId(id);
-    const selected = pending.find((item) => item.id === id);
-    setPayments(selected?.payments.length ? selected.payments : [emptyPayment()]);
   };
 
   useEffect(() => {
@@ -74,20 +61,10 @@ export default function PendingPayments() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pending]);
 
-  const updatePayment = (index: number, patch: Partial<PaymentSplit>) => {
-    setPayments(payments.map((payment, currentIndex) =>
-      currentIndex === index ? { ...payment, ...patch } : payment
-    ));
-  };
-
-  const addPayment = () => setPayments([...payments, emptyPayment()]);
-  const fillRemaining = (index: number) => updatePayment(index, { amount: Math.max(0, +(remaining + (payments[index]?.amount || 0)).toFixed(2)) });
-  const removePayment = (index: number) => setPayments(payments.filter((_, currentIndex) => currentIndex !== index));
-
   const confirm = () => {
     if (!sale || !user) return;
-    if (payments.length === 0 || payments.every((payment) => payment.amount <= 0)) {
-      return toast.error("Registra al menos un pago");
+    if (normalizedPayments.length === 0 || normalizedPayments.every((payment) => payment.amount <= 0)) {
+      return toast.error("La venta no tiene pagos registrados");
     }
     if (remaining > 0.001) return toast.error(`Falta ${fmtMoney(remaining)} por cobrar`);
     if (paid - totalDue > 0.001) return toast.error(`Sobra ${fmtMoney(paid - totalDue)}. Corrige el cobro antes de confirmar`);
@@ -102,9 +79,8 @@ export default function PendingPayments() {
       operationalRoleFor(user, "cajero")
     );
     if (updated) {
-      toast.success(`Venta ${updated.code} cobrada`, { description: fmtMoney(updated.total) });
+      toast.success(`Venta ${updated.code} confirmada`, { description: fmtMoney(updated.total) });
       setOpenId(null);
-      setPayments([emptyPayment()]);
     }
   };
 
@@ -122,42 +98,56 @@ export default function PendingPayments() {
     <>
       <PageHeader
         title="Por cobrar"
-        subtitle={`${pending.length} venta${pending.length === 1 ? "" : "s"} esperando cobro`}
+        subtitle={`${pending.length} venta${pending.length === 1 ? "" : "s"} esperando confirmacion de caja`}
       />
 
       <div className="rounded-2xl bg-card border border-border/60 overflow-hidden">
         {pending.length === 0 ? (
           <div className="p-10 text-center">
             <Receipt className="size-10 mx-auto text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">No hay ventas pendientes de cobro</p>
+            <p className="text-sm text-muted-foreground">No hay ventas pendientes de confirmacion</p>
           </div>
         ) : (
           <ul className="divide-y divide-border/60">
-            {pending.map((item) => (
-              <li
-                key={item.id}
-                className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-secondary/40 cursor-pointer"
-                onClick={() => openSale(item.id)}
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-mono text-xs text-muted-foreground">{item.code}</p>
-                    <StatusBadge kind="pendiente_cobro" />
+            {pending.map((item) => {
+              const itemSurcharge = item.payments.reduce((acc, payment) => {
+                const amount = Number.isFinite(payment.amount) ? payment.amount : 0;
+                return acc + (payment.method === "tarjeta" ? +(amount * (settings.cardSurchargePct / 100)).toFixed(2) : 0);
+              }, 0);
+              const itemPaid = item.payments.reduce((acc, payment) => {
+                const amount = Number.isFinite(payment.amount) ? payment.amount : 0;
+                const surcharge = payment.method === "tarjeta" ? +(amount * (settings.cardSurchargePct / 100)).toFixed(2) : 0;
+                return acc + amount + surcharge;
+              }, 0);
+              const itemTotalDue = item.subtotal + itemSurcharge;
+              const itemRemaining = itemTotalDue - itemPaid;
+
+              return (
+                <li
+                  key={item.id}
+                  className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-secondary/40 cursor-pointer"
+                  onClick={() => openSale(item.id)}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-mono text-xs text-muted-foreground">{item.code}</p>
+                      <StatusBadge kind="pendiente_cobro" />
+                    </div>
+                    <p className="font-medium truncate">{item.sellerName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {fmtDateTime(item.timestamp)} - {item.lines.length} item{item.lines.length === 1 ? "" : "s"}
+                      {item.customerPhone ? ` - ${item.customerPhone}` : ""}
+                    </p>
                   </div>
-                  <p className="font-medium truncate">{item.sellerName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {fmtDateTime(item.timestamp)} - {item.lines.length} item{item.lines.length === 1 ? "" : "s"}
-                    {item.customerPhone ? ` - ${item.customerPhone}` : ""}
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="font-display font-bold text-lg">{fmtMoney(item.subtotal)}</p>
-                  <Button size="sm" className="mt-1 bg-gradient-gold text-accent-foreground hover:opacity-90">
-                    Cobrar
-                  </Button>
-                </div>
-              </li>
-            ))}
+                  <div className="text-right shrink-0">
+                    <p className="font-display font-bold text-lg">{fmtMoney(itemTotalDue)}</p>
+                    <p className={`text-xs ${itemRemaining > 0.001 ? "text-critical" : "text-success"}`}>
+                      {itemRemaining > 0.001 ? `Falta ${fmtMoney(itemRemaining)}` : "Lista para confirmar"}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
@@ -165,13 +155,12 @@ export default function PendingPayments() {
       <Dialog open={!!openId} onOpenChange={(open) => {
         if (!open) {
           setOpenId(null);
-          setPayments([emptyPayment()]);
         }
       }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Receipt className="size-5" /> Cobrar {sale?.code}
+              <Receipt className="size-5" /> Confirmar {sale?.code}
             </DialogTitle>
           </DialogHeader>
           {sale && (
@@ -189,6 +178,12 @@ export default function PendingPayments() {
                     <div className="min-w-0">
                       <p className="font-mono text-[10px] text-muted-foreground">{line.unitCode}</p>
                       <p className="text-xs truncate">{line.productLabel}</p>
+                      {line.sourceLocationName && (
+                        <p className="text-[11px] text-muted-foreground">
+                          Se saco de: {line.sourceLocationName}
+                          {line.takenFromStorageByName ? ` · Lo retiro ${line.takenFromStorageByName}` : ""}
+                        </p>
+                      )}
                     </div>
                     <span className="font-semibold">{fmtMoney(line.finalPrice)}</span>
                   </div>
@@ -196,51 +191,32 @@ export default function PendingPayments() {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label className="text-xs uppercase font-semibold">Cobro por caja</Label>
-                  <Button variant="outline" size="sm" onClick={addPayment}>
-                    <ArrowLeftRight className="size-4 mr-1" /> Pago mixto
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  {payments.map((payment, index) => {
-                    const effectivePayment = normalizedPayments[index];
-                    return (
+                <Label className="text-xs uppercase font-semibold">Cobro registrado por colaborador</Label>
+                <div className="space-y-2 mt-2">
+                  {normalizedPayments.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-border p-3 text-xs text-muted-foreground">
+                      Esta venta no tiene pagos registrados.
+                    </p>
+                  ) : normalizedPayments.map((payment, index) => (
                     <div key={index} className="rounded-xl border border-border p-2 space-y-1.5">
                       <div className="flex gap-2 items-center">
-                        <select
-                          value={payment.method}
-                          onChange={(event) => updatePayment(index, { method: event.target.value as PaymentMethod, surcharge: 0 })}
-                          className="flex-1 rounded-md border border-input bg-card text-sm h-9 px-2"
-                        >
-                          {Object.entries(METHOD_LABEL).map(([method, label]) => (
-                            <option key={method} value={method}>{label}</option>
-                          ))}
-                        </select>
-                        <Input
-                          type="number"
-                          value={payment.amount}
-                          onChange={(event) => updatePayment(index, { amount: +event.target.value })}
-                          className="w-28"
-                          placeholder="Monto"
-                        />
-                        <Button size="sm" variant="outline" onClick={() => fillRemaining(index)}>Falta</Button>
-                        {payments.length > 1 && (
-                          <Button size="icon" variant="ghost" onClick={() => removePayment(index)}>
-                            <Trash2 className="size-4" />
-                          </Button>
-                        )}
+                        <div className="flex-1 rounded-md border border-input bg-card text-sm h-9 px-3 flex items-center">
+                          {payment.method === "yape_plin" ? "Yape/Plin" : payment.method.charAt(0).toUpperCase() + payment.method.slice(1)}
+                        </div>
+                        <div className="w-28 rounded-md border border-input bg-card text-sm h-9 px-3 flex items-center justify-end font-semibold">
+                          {fmtMoney(payment.amount)}
+                        </div>
                       </div>
                       {payment.method === "tarjeta" && (
                         <div className="flex items-center justify-between text-xs gap-2 bg-secondary/50 rounded-md px-2 py-1.5">
                           <span className="flex items-center gap-1.5">
                             <CreditCard className="size-3.5" />Recargo tarjeta {settings.cardSurchargePct}%
                           </span>
-                          <strong>{fmtMoney(effectivePayment.surcharge || 0)}</strong>
+                          <strong>{fmtMoney(payment.surcharge || 0)}</strong>
                         </div>
                       )}
                     </div>
-                  )})}
+                  ))}
                 </div>
               </div>
 
@@ -271,7 +247,7 @@ export default function PendingPayments() {
                 )}
                 <Button
                   onClick={confirm}
-                  disabled={Math.abs(remaining) > 0.001 || payments.every((payment) => payment.amount <= 0)}
+                  disabled={Math.abs(remaining) > 0.001 || normalizedPayments.every((payment) => payment.amount <= 0)}
                   className="bg-gradient-gold text-accent-foreground hover:opacity-90 font-bold"
                 >
                   <CheckCircle2 className="size-4 mr-1" /> Confirmar pago

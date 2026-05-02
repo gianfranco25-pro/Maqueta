@@ -1,11 +1,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
-  buildInitialInventory,
   initialCatalogMasters,
   initialAfterSales,
   initialAttendance,
   initialAuthorizations,
+  initialInventorySeed,
   initialLocations,
   initialMovements,
   initialProducts,
@@ -33,18 +33,25 @@ import {
   Location,
   Movement,
   Product,
+  ProductType,
   Role,
+  SaleLine,
   Sale,
   User,
 } from "./types";
 import { getProductPrices } from "./pricing";
 
-const initialInv = buildInitialInventory();
+const initialInv = initialInventorySeed;
+
+const isOperableInventoryStatus = (status: ItemStatus) =>
+  status === "disponible" || status === "con_falla";
 
 const expandOperationalCodes = (rawCodes: string[], inventory: InventoryItem[]) => {
   const expanded = rawCodes.flatMap((raw) => {
     const code = raw.trim().toUpperCase();
-    if (/^A\d{5}$/.test(code)) return [`${code}-D`, `${code}-I`];
+    if (/^[A-Z]\d{5}$/.test(code) && inventory.some((item) => item.pairCode === code)) {
+      return [`${code}-D`, `${code}-I`];
+    }
     return [code];
   });
   return Array.from(new Set(expanded));
@@ -56,12 +63,29 @@ const getValidatedAvailableItems = (rawCodes: string[], inventory: InventoryItem
   const missing = unitCodes.filter((_, index) => !items[index]);
   if (missing.length) throw new Error(`Código no existe: ${missing.join(", ")}`);
 
-  const unavailable = items.filter((item): item is InventoryItem => Boolean(item) && item.status !== "disponible");
+  const unavailable = items.filter((item): item is InventoryItem => Boolean(item) && !isOperableInventoryStatus(item.status));
   if (unavailable.length) {
     throw new Error(`No disponible: ${unavailable.map((i) => i.unitCode).join(", ")}`);
   }
 
   return { unitCodes, items: items as InventoryItem[] };
+};
+
+const lineUnitCodes = (line: SaleLine) =>
+  line.sourceUnitCodes?.length
+    ? line.sourceUnitCodes
+    : line.isPair
+      ? [`${line.unitCode}-D`, `${line.unitCode}-I`]
+      : [line.unitCode];
+
+const restoreStatusesForLines = (lines: SaleLine[]) => {
+  const restoreMap = new Map<string, ItemStatus>();
+  lines.forEach((line) => {
+    lineUnitCodes(line).forEach((unitCode) => {
+      restoreMap.set(unitCode, line.sourceUnitStatuses?.[unitCode] || "disponible");
+    });
+  });
+  return restoreMap;
 };
 
 type State = {
@@ -105,8 +129,8 @@ type Actions = {
   toggleLocationActive: (id: string) => void;
 
   // Masters
-  addCatalogMaster: (kind: CatalogMasterKind, payload: { name: string; brandId?: string }) => void;
-  updateCatalogMaster: (kind: CatalogMasterKind, id: string, patch: { name?: string; brandId?: string }) => void;
+  addCatalogMaster: (kind: CatalogMasterKind, payload: { name: string; brandId?: string; type?: ProductType }) => void;
+  updateCatalogMaster: (kind: CatalogMasterKind, id: string, patch: { name?: string; brandId?: string; type?: ProductType }) => void;
   toggleCatalogMasterActive: (kind: CatalogMasterKind, id: string) => void;
 
   // Attendance
@@ -119,11 +143,19 @@ type Actions = {
   // Inventory
   addShoePair: (productId: string, locationId: string) => { pairCode: string };
   addAccessoryUnits: (productId: string, locationId: string, qty: number) => string[];
+  registerInventoryCodes: (args: {
+    productId: string;
+    locationId: string;
+    codes: string[];
+    byUserId: string;
+    byUserName: string;
+    byUserRole?: Role;
+  }) => string[];
   updateItemStatus: (unitCode: string, status: ItemStatus, notes?: string) => void;
-  adjustInventoryItems: (unitCodes: string[], status: ItemStatus, reason: string, byUserId: string, byUserName: string, byUserRole?: Role) => void;
   transferItems: (unitCodes: string[], toLocationId: string, byUserId: string, byUserName: string, byUserRole?: Role, receivedBy?: string) => void;
   deliverFromWarehouse: (unitCodes: string[], byUserId: string, byUserName: string, byUserRole?: Role, receivedBy?: string, toLocationId?: string) => void;
   markAsFault: (unitCode: string, reason: string, byUserId: string, byUserName: string, byUserRole?: Role) => void;
+  markItemsAsFault: (unitCodes: string[], reason: string, byUserId: string, byUserName: string, byUserRole?: Role) => void;
 
   // Settings
   updateSettings: (patch: Partial<AppSettings>) => void;
@@ -212,13 +244,12 @@ export const useAppStore = create<State & Actions>()(
       addCatalogMaster: (kind, payload) => {
         const name = payload.name.trim();
         if (!name) throw new Error("Nombre requerido");
-        if (kind === "models" && !payload.brandId) throw new Error("Selecciona una marca para el modelo");
+        if (kind === "models" && payload.type === "zapato" && !payload.brandId) {
+          throw new Error("Selecciona una marca para el modelo");
+        }
+        if (kind === "models" && !payload.type) throw new Error("Selecciona si el modelo es calzado o accesorio");
         const masters = get().catalogMasters;
-        const duplicate = masters[kind].some((item) => {
-          const sameName = item.name.trim().toLowerCase() === name.toLowerCase();
-          if (kind !== "models") return sameName;
-          return sameName && "brandId" in item && item.brandId === payload.brandId;
-        });
+        const duplicate = masters[kind].some((item) => item.name.trim().toLowerCase() === name.toLowerCase());
         if (duplicate) throw new Error("Ese maestro ya existe");
         const idPrefix = kind.slice(0, -1);
         const created = {
@@ -226,7 +257,12 @@ export const useAppStore = create<State & Actions>()(
           name,
           active: true,
           createdAt: new Date().toISOString(),
-          ...(kind === "models" ? { brandId: payload.brandId! } : {}),
+          ...(kind === "models"
+            ? {
+                ...(payload.brandId ? { brandId: payload.brandId } : {}),
+                type: payload.type!,
+              }
+            : {}),
         };
         set({
           catalogMasters: {
@@ -239,7 +275,13 @@ export const useAppStore = create<State & Actions>()(
         const masters = get().catalogMasters;
         const name = patch.name?.trim();
         if (name === "") throw new Error("Nombre requerido");
-        if (kind === "models" && patch.brandId === "") throw new Error("Selecciona una marca para el modelo");
+        if (kind === "models" && patch.type === "zapato" && patch.brandId === "") {
+          throw new Error("Selecciona una marca para el modelo");
+        }
+        if (kind === "models" && patch.type === undefined) {
+          const current = masters.models.find((item) => item.id === id);
+          if (!current?.type) throw new Error("Selecciona si el modelo es calzado o accesorio");
+        }
         const nextList = masters[kind].map((item) =>
           item.id === id ? { ...item, ...patch, ...(name ? { name } : {}) } : item
         );
@@ -336,6 +378,96 @@ export const useAppStore = create<State & Actions>()(
         return codes;
       },
 
+      registerInventoryCodes: ({ productId, locationId, codes, byUserId, byUserName, byUserRole }) => {
+        const inventory = get().inventory;
+        const product = get().products.find((entry) => entry.id === productId);
+        const location = get().locations.find((entry) => entry.id === locationId);
+        if (!product) throw new Error("La referencia seleccionada no existe");
+        if (!location || !isLocationActive(location)) throw new Error("La ubicacion destino no esta activa");
+
+        const normalizedCodes = Array.from(
+          new Set(
+            codes
+              .map((code) => code.trim().toUpperCase())
+              .filter(Boolean)
+          )
+        );
+
+        if (normalizedCodes.length === 0) throw new Error("Agrega al menos un codigo");
+
+        const duplicateExisting = normalizedCodes.filter((code) =>
+          inventory.some((item) => item.unitCode === code)
+        );
+        if (duplicateExisting.length > 0) {
+          throw new Error(`Estos codigos ya existen: ${duplicateExisting.join(", ")}`);
+        }
+
+        if (product.type === "zapato" && isStorageLocation(location)) {
+          const pairSides = new Map<string, Set<string>>();
+          normalizedCodes.forEach((code) => {
+            const match = code.match(/^([A-Z]\d{5})-(D|I)$/);
+            if (!match) return;
+            const current = pairSides.get(match[1]) || new Set<string>();
+            current.add(match[2]);
+            pairSides.set(match[1], current);
+          });
+
+          const incompletePairs = Array.from(pairSides.entries())
+            .filter(([, sides]) => !(sides.has("D") && sides.has("I")))
+            .map(([pairCode]) => pairCode);
+
+          if (incompletePairs.length > 0) {
+            throw new Error(`En almacen el calzado solo entra como par completo: ${incompletePairs.join(", ")}`);
+          }
+        }
+
+        const timestamp = new Date().toISOString();
+        const newItems: InventoryItem[] = normalizedCodes.map((code) => {
+          if (product.type === "zapato") {
+            const match = code.match(/^([A-Z]\d{5})-(D|I)$/);
+            if (!match) throw new Error(`Codigo invalido para calzado: ${code}`);
+            return {
+              id: `inv-${code}`,
+              productId,
+              pairCode: match[1],
+              side: match[2] as InventoryItem["side"],
+              unitCode: code,
+              status: "disponible",
+              locationId,
+              createdAt: timestamp,
+            };
+          }
+
+            if (!/^(?:[A-Z]\d{5}|[A-Z]\d{5}-(D|I))$/.test(code)) throw new Error(`Codigo invalido para accesorio: ${code}`);
+            return {
+              id: `inv-${code}`,
+              productId,
+            unitCode: code,
+            status: "disponible",
+            locationId,
+            createdAt: timestamp,
+          };
+        });
+
+        const mv: Movement = {
+          id: `mv-${Date.now()}`,
+          type: "ingreso",
+          unitCodes: normalizedCodes,
+          toLocationId: locationId,
+          byUserId,
+          byUserName,
+          byUserRole,
+          timestamp,
+        };
+
+        set({
+          inventory: [...inventory, ...newItems],
+          movements: [mv, ...get().movements],
+        });
+
+        return normalizedCodes;
+      },
+
       updateItemStatus: (unitCode, status, notes) =>
         set({
           inventory: get().inventory.map((i) =>
@@ -343,41 +475,13 @@ export const useAppStore = create<State & Actions>()(
           ),
         }),
 
-      adjustInventoryItems: (rawCodes, status, reason, byUserId, byUserName, byUserRole) => {
-        if (!rawCodes.length) throw new Error("Agrega al menos un codigo");
-        if (!reason.trim()) throw new Error("Indica un motivo de ajuste");
-        const inventory = get().inventory;
-        const unitCodes = expandOperationalCodes(rawCodes, inventory);
-        const items = unitCodes.map((code) => inventory.find((i) => i.unitCode === code));
-        const missing = unitCodes.filter((_, index) => !items[index]);
-        if (missing.length) throw new Error(`Codigo no existe: ${missing.join(", ")}`);
-
-        const cleanReason = reason.trim();
-        const mv: Movement = {
-          id: `mv-${Date.now()}`,
-          type: "ajuste",
-          unitCodes,
-          byUserId,
-          byUserName,
-          byUserRole,
-          reason: cleanReason,
-          timestamp: new Date().toISOString(),
-        };
-        set({
-          inventory: inventory.map((item) =>
-            unitCodes.includes(item.unitCode)
-              ? { ...item, status, notes: cleanReason }
-              : item
-          ),
-          movements: [mv, ...get().movements],
-        });
-      },
-
       transferItems: (rawCodes, toLocationId, byUserId, byUserName, byUserRole, receivedBy) => {
         const inventory = get().inventory;
         const { unitCodes, items } = getValidatedAvailableItems(rawCodes, inventory);
         const fromLocationId = items[0]?.locationId;
         const destination = get().locations.find((l) => l.id === toLocationId);
+        const sourceResponsibles = Array.from(new Set(items.map((item) => item.responsibleName?.trim()).filter(Boolean) as string[]));
+        const isReturnToStorage = isStorageLocation(destination) && sourceResponsibles.length > 0;
 
         if (!toLocationId) throw new Error("Selecciona una ubicación destino");
         if (!destination || !isLocationActive(destination)) throw new Error("La ubicacion destino no esta activa");
@@ -388,12 +492,16 @@ export const useAppStore = create<State & Actions>()(
 
         const inv = inventory.map((i) =>
           unitCodes.includes(i.unitCode)
-            ? { ...i, locationId: toLocationId, status: "disponible" as ItemStatus, responsibleName: receivedBy || byUserName }
+            ? isReturnToStorage
+              ? { ...i, locationId: toLocationId, responsibleUserId: undefined, responsibleName: undefined }
+              : receivedBy
+                ? { ...i, locationId: toLocationId, responsibleUserId: undefined, responsibleName: receivedBy }
+                : { ...i, locationId: toLocationId }
             : i
         );
         const mv: Movement = {
           id: `mv-${Date.now()}`,
-          type: "traslado",
+          type: isReturnToStorage ? "devolucion" : "traslado",
           unitCodes,
           fromLocationId,
           toLocationId,
@@ -401,6 +509,7 @@ export const useAppStore = create<State & Actions>()(
           byUserName,
           byUserRole,
           receivedBy,
+          reason: isReturnToStorage ? `Devuelto por ${sourceResponsibles.join(", ")}` : undefined,
           timestamp: new Date().toISOString(),
         };
         set({ inventory: inv, movements: [mv, ...get().movements] });
@@ -419,10 +528,10 @@ export const useAppStore = create<State & Actions>()(
 
         if (!receiverName) throw new Error("Indica quien recibe");
         if (items.some((i) => i.locationId !== fromLocationId)) {
-          throw new Error("Todos los items deben salir del mismo deposito");
+          throw new Error("Todos los items deben salir del mismo almacen");
         }
         if (!fromLocationId || !storageIds.includes(fromLocationId)) {
-          throw new Error("Solo se pueden entregar items que estan en deposito o almacen");
+          throw new Error("Solo se pueden entregar items que estan en almacen");
         }
         if (!toLocationId || !destination) {
           throw new Error("Selecciona una ubicacion destino para el receptor");
@@ -435,7 +544,6 @@ export const useAppStore = create<State & Actions>()(
             ? {
                 ...i,
                 locationId: toLocationId,
-                status: "disponible" as ItemStatus,
                 responsibleUserId: receiver?.id,
                 responsibleName: finalReceiverName,
               }
@@ -474,6 +582,35 @@ export const useAppStore = create<State & Actions>()(
           movements: [mv, ...get().movements],
         });
       },
+      markItemsAsFault: (rawCodes, reason, byUserId, byUserName, byUserRole) => {
+        if (!rawCodes.length) throw new Error("Agrega al menos un codigo");
+        if (!reason.trim()) throw new Error("Indica un motivo de falla");
+        const inventory = get().inventory;
+        const unitCodes = expandOperationalCodes(rawCodes, inventory);
+        const items = unitCodes.map((code) => inventory.find((item) => item.unitCode === code));
+        const missing = unitCodes.filter((_, index) => !items[index]);
+        if (missing.length) throw new Error(`Codigo no existe: ${missing.join(", ")}`);
+
+        const cleanReason = reason.trim();
+        const mv: Movement = {
+          id: `mv-${Date.now()}`,
+          type: "falla",
+          unitCodes,
+          byUserId,
+          byUserName,
+          byUserRole,
+          reason: cleanReason,
+          timestamp: new Date().toISOString(),
+        };
+        set({
+          inventory: inventory.map((item) =>
+            unitCodes.includes(item.unitCode)
+              ? { ...item, status: "con_falla", notes: cleanReason }
+              : item
+          ),
+          movements: [mv, ...get().movements],
+        });
+      },
 
       updateSettings: (patch) => set({ settings: { ...get().settings, ...patch } }),
 
@@ -502,12 +639,7 @@ export const useAppStore = create<State & Actions>()(
         // Reservar items (no vendidos aún, pero bloqueados)
         const reservedUnitCodes = new Set<string>();
         normalizedLines.forEach((l) => {
-          if (l.isPair) {
-            reservedUnitCodes.add(`${l.unitCode}-D`);
-            reservedUnitCodes.add(`${l.unitCode}-I`);
-          } else {
-            reservedUnitCodes.add(l.unitCode);
-          }
+          lineUnitCodes(l).forEach((unitCode) => reservedUnitCodes.add(unitCode));
         });
         const inv = get().inventory.map((i) =>
           reservedUnitCodes.has(i.unitCode) ? { ...i, status: "reservado" as ItemStatus } : i
@@ -533,12 +665,7 @@ export const useAppStore = create<State & Actions>()(
         });
         const soldUnitCodes = new Set<string>();
         confirmedLines.forEach((l) => {
-          if (l.isPair) {
-            soldUnitCodes.add(`${l.unitCode}-D`);
-            soldUnitCodes.add(`${l.unitCode}-I`);
-          } else {
-            soldUnitCodes.add(l.unitCode);
-          }
+          lineUnitCodes(l).forEach((unitCode) => soldUnitCodes.add(unitCode));
         });
         const inv = get().inventory.map((i) =>
           soldUnitCodes.has(i.unitCode) ? { ...i, status: "vendido" as ItemStatus } : i
@@ -580,15 +707,9 @@ export const useAppStore = create<State & Actions>()(
       cancelDraftSale: (saleId, reason) => {
         const sale = get().sales.find((s) => s.id === saleId);
         if (!sale || sale.status !== "pendiente_cobro") return;
-        const release = new Set<string>();
-        sale.lines.forEach((l) => {
-          if (l.isPair) {
-            release.add(`${l.unitCode}-D`);
-            release.add(`${l.unitCode}-I`);
-          } else release.add(l.unitCode);
-        });
+        const release = restoreStatusesForLines(sale.lines);
         const inv = get().inventory.map((i) =>
-          release.has(i.unitCode) ? { ...i, status: "disponible" as ItemStatus } : i
+          release.has(i.unitCode) ? { ...i, status: release.get(i.unitCode) || "disponible" } : i
         );
         const updated = get().sales.map((s) =>
           s.id === saleId ? { ...s, status: "anulada" as const, voidReason: reason } : s
@@ -600,15 +721,9 @@ export const useAppStore = create<State & Actions>()(
         const sale = get().sales.find((s) => s.id === saleId);
         if (!sale) return;
         // Devolver items al stock
-        const restore = new Set<string>();
-        sale.lines.forEach((l) => {
-          if (l.isPair) {
-            restore.add(`${l.unitCode}-D`);
-            restore.add(`${l.unitCode}-I`);
-          } else restore.add(l.unitCode);
-        });
+        const restore = restoreStatusesForLines(sale.lines);
         const inv = get().inventory.map((i) =>
-          restore.has(i.unitCode) ? { ...i, status: "disponible" as ItemStatus } : i
+          restore.has(i.unitCode) ? { ...i, status: restore.get(i.unitCode) || "disponible" } : i
         );
         const updated = get().sales.map((s) =>
           s.id === saleId ? { ...s, status: "anulada" as const, voidReason: reason } : s
@@ -710,7 +825,7 @@ export const useAppStore = create<State & Actions>()(
       },
     }),
     {
-      name: "kabutt-store-v4",
+      name: "kabutt-store-v5",
     }
   )
 );

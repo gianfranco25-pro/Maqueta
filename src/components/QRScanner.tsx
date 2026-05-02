@@ -1,19 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
-import { Camera, X, Keyboard, CheckCircle2, AlertCircle } from "lucide-react";
+import { AlertCircle, Camera, CheckCircle2, Keyboard, X } from "lucide-react";
+import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
 
 const ELEMENT_ID = "kabutt-qr-reader";
 
-// Códigos válidos: A00001-D, A00001-I (zapatos) o B00001 (accesorios)
 export function isValidUnitCode(code: string) {
-  return /^A\d{5}-(D|I)$/.test(code) || /^B\d{5}$/.test(code);
+  return /^(?:[A-Z]\d{5}|[A-Z]\d{5}-(D|I))$/.test(code);
 }
 
 export function isPairCode(code: string) {
-  return /^A\d{5}$/.test(code);
+  return /^[A-Z]\d{5}$/.test(code);
 }
 
 export function isSaleCode(code: string) {
@@ -58,45 +58,56 @@ export function QRScanner({
         );
         setActive(true);
         setError(null);
-      } catch (e: any) {
-        setError("No se pudo abrir la cámara. Usa entrada manual.");
+      } catch {
+        setError("No se pudo abrir la camara. Usa entrada manual.");
         setMode("manual");
       }
     };
 
     start();
+
     return () => {
       mounted = false;
-      const s = scannerRef.current;
+      const scanner = scannerRef.current;
       scannerRef.current = null;
-      if (s) {
-        // Solo detener si está corriendo (state === 2)
-        const state = (s as any).getState?.();
+      if (scanner) {
+        const state = (scanner as { getState?: () => number }).getState?.();
         if (state === 2) {
-          s.stop().then(() => s.clear()).catch(() => {});
+          scanner.stop().then(() => scanner.clear()).catch(() => {});
         } else {
-          try { s.clear(); } catch {}
+          try {
+            scanner.clear();
+          } catch {}
         }
       }
       setActive(false);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
   const handleResult = (code: string) => {
-    if (!isValidUnitCode(code) && !(allowPairCodes && isPairCode(code)) && !(allowSaleCodes && isSaleCode(code))) {
-      toast.error(`Código inválido: ${code}`, {
-        description: allowSaleCodes ? "Formato esperado: V-0001, A00001, A00001-D, A00001-I o B00001" : allowPairCodes ? "Formato esperado: A00001, A00001-D, A00001-I o B00001" : "Formato esperado: A00001-D, A00001-I o B00001",
+    const valid =
+      isValidUnitCode(code) ||
+      (allowPairCodes && isPairCode(code)) ||
+      (allowSaleCodes && isSaleCode(code));
+
+    if (!valid) {
+      toast.error(`Codigo invalido: ${code}`, {
+        description: allowSaleCodes
+          ? "Formato esperado: V-0001, A00001, A00001-D o C00001-I"
+          : allowPairCodes
+            ? "Formato esperado: A00001, A00001-D o C00001-I"
+            : "Formato esperado: A00001, A00001-D o C00001-I",
       });
       return;
     }
+
     onResult(code);
   };
 
   return (
     <div className="space-y-4">
       {expectedHint && (
-        <div className="rounded-lg bg-secondary px-3 py-2 text-xs text-muted-foreground">{expectedHint}</div>
+        <div className="rounded-lg bg-secondary px-3 py-2 text-sm leading-relaxed text-muted-foreground">{expectedHint}</div>
       )}
 
       <div className="flex gap-2">
@@ -106,7 +117,8 @@ export function QRScanner({
           onClick={() => setMode("camera")}
           className="flex-1"
         >
-          <Camera className="size-4 mr-2" /> Cámara
+          <Camera className="mr-2 size-4" />
+          Camara
         </Button>
         <Button
           type="button"
@@ -114,7 +126,8 @@ export function QRScanner({
           onClick={() => setMode("manual")}
           className="flex-1"
         >
-          <Keyboard className="size-4 mr-2" /> Manual
+          <Keyboard className="mr-2 size-4" />
+          Manual
         </Button>
         {onClose && (
           <Button type="button" variant="ghost" size="icon" onClick={onClose}>
@@ -124,30 +137,32 @@ export function QRScanner({
       </div>
 
       {mode === "camera" ? (
-        <div className="relative rounded-2xl overflow-hidden bg-foreground aspect-square max-w-sm mx-auto">
-          <div id={ELEMENT_ID} className="w-full h-full" />
+        <div className="relative mx-auto aspect-square max-w-sm overflow-hidden rounded-2xl bg-foreground">
+          <div id={ELEMENT_ID} className="h-full w-full" />
+
           {!active && !error && (
-            <div className="absolute inset-0 grid place-items-center text-background/70 text-sm">
-              Iniciando cámara...
+            <div className="absolute inset-0 grid place-items-center text-sm text-background/70">
+              Iniciando camara...
             </div>
           )}
-          {/* overlay */}
+
           {active && (
             <>
               <div className="pointer-events-none absolute inset-0 grid place-items-center">
-                <div className="size-56 rounded-2xl border-2 border-accent/80 relative overflow-hidden">
+                <div className="relative size-56 overflow-hidden rounded-2xl border-2 border-accent/80">
                   <div className="scan-line absolute inset-x-0 h-1" />
                 </div>
               </div>
-              <div className="absolute bottom-3 inset-x-3 bg-foreground/70 backdrop-blur text-background text-[11px] rounded-lg px-3 py-2 text-center">
-                Apunta al QR del par o pieza
+              <div className="absolute inset-x-3 bottom-3 rounded-lg bg-foreground/70 px-3 py-2 text-center text-[11px] text-background backdrop-blur">
+                Apunta al QR del par o de la pieza
               </div>
             </>
           )}
+
           {error && (
-            <div className="absolute inset-0 grid place-items-center p-4 text-background text-center">
+            <div className="absolute inset-0 grid place-items-center p-4 text-center text-background">
               <div>
-                <AlertCircle className="size-8 text-critical mx-auto mb-2" />
+                <AlertCircle className="mx-auto mb-2 size-8 text-critical" />
                 <p className="text-sm">{error}</p>
               </div>
             </div>
@@ -155,8 +170,8 @@ export function QRScanner({
         </div>
       ) : (
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
+          onSubmit={(event) => {
+            event.preventDefault();
             handleResult(manual.trim().toUpperCase());
             setManual("");
           }}
@@ -165,16 +180,25 @@ export function QRScanner({
           <Input
             autoFocus
             value={manual}
-            onChange={(e) => setManual(e.target.value.toUpperCase())}
-            placeholder={allowSaleCodes ? "Ej: V-0001, A00001-D o B00001" : allowPairCodes ? "Ej: A00001, A00001-D o B00001" : "Ej: A00001-D, A00001-I o B00001"}
-            className="text-center text-lg tracking-wider font-mono h-14"
+            onChange={(event) => setManual(event.target.value.toUpperCase())}
+            placeholder={
+              allowSaleCodes
+                ? "Ej: V-0001, A00001-D o C00001-I"
+                : allowPairCodes
+                  ? "Ej: A00001, A00001-D o C00001-I"
+                  : "Ej: A00001, A00001-D o C00001-I"
+            }
+            className="h-14 text-center font-mono text-lg tracking-wider"
           />
-          <Button type="submit" className="w-full h-12 bg-foreground text-background hover:bg-foreground/90">
-            <CheckCircle2 className="size-4 mr-2" /> Confirmar código
+          <Button type="submit" className="h-12 w-full bg-foreground text-background hover:bg-foreground/90">
+            <CheckCircle2 className="mr-2 size-4" />
+            Confirmar codigo
           </Button>
-          <p className="text-xs text-muted-foreground text-center">
-            Formatos válidos: {allowSaleCodes && <><span className="font-mono">V-0001</span>, </>}{allowPairCodes && <><span className="font-mono">A00001</span>, </>}<span className="font-mono">A00001-D</span>,{" "}
-            <span className="font-mono">A00001-I</span>, <span className="font-mono">B00001</span>
+          <p className="text-center text-sm text-muted-foreground">
+            Formatos validos: {allowSaleCodes && <><span className="font-mono">V-0001</span>, </>}
+            {allowPairCodes && <><span className="font-mono">A00001</span>, </>}
+            <span className="font-mono">A00001-D</span>, <span className="font-mono">A00001-I</span>,{" "}
+            <span className="font-mono">C00001</span>
           </p>
         </form>
       )}

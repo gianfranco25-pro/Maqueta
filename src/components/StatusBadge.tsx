@@ -43,7 +43,7 @@ const styles: Record<StatusKind, string> = {
 const labels: Partial<Record<StatusKind, string>> = {
   disponible: "Disponible",
   vendido: "Vendido",
-  con_falla: "Con falla",
+  con_falla: "Disponible con falla",
   bloqueado: "Bloqueado",
   reservado: "Reservado",
   pendiente: "Pendiente",

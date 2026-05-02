@@ -1,6 +1,6 @@
 ﻿# Requerimientos del Sistema de Venta y Almacen de Zapatos
 
-Fuente: `c:\Users\gianf\Downloads\Sistema_Ventas_Almacen_Actualizado_v7.docx`
+Fuente: `c:\Users\gianf\Downloads\Sistema_Ventas_Almacen_Actualizado_v8.docx`
 Documento original fechado: 23/04/2026
 Guardado en el proyecto: 28/04/2026
 

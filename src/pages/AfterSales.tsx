@@ -25,6 +25,7 @@ export default function AfterSales() {
   const wrong = useAppStore((s) => s.registerWrongPurchase);
   const user = useCurrentUser();
   const canWrong = useCan("aftersales.wrong");
+  const canViewAllSales = useCan("sales.view.all");
 
   const [search, setSearch] = useState("");
   const [selectedSale, setSelectedSale] = useState<string>("");
@@ -32,12 +33,23 @@ export default function AfterSales() {
   const [newUnit, setNewUnit] = useState("");
   const [reason, setReason] = useState("");
 
-  const confirmedSales = sales.filter((s) => s.status === "confirmada");
+  const visibleSales = useMemo(
+    () => (canViewAllSales ? sales : sales.filter((sale) => sale.sellerId === user?.id)),
+    [canViewAllSales, sales, user?.id]
+  );
+  const confirmedSales = visibleSales.filter((s) => s.status === "confirmada");
   const found = confirmedSales.filter((s) =>
     !search ? true : (s.code + (s.customerPhone || "") + s.sellerName).toLowerCase().includes(search.toLowerCase())
   );
   const sale = confirmedSales.find((s) => s.id === selectedSale);
   const oldLine = sale?.lines.find((l) => l.unitCode === oldUnit);
+  const visibleAfterSales = useMemo(
+    () =>
+      canViewAllSales
+        ? aftersales
+        : aftersales.filter((record) => sales.find((saleItem) => saleItem.id === record.saleId)?.sellerId === user?.id),
+    [aftersales, canViewAllSales, sales, user?.id]
+  );
 
   const availableOptions = useMemo(() => {
     const groupedPairs = new Map<string, typeof inventory>();
@@ -209,11 +221,11 @@ export default function AfterSales() {
 
         <TabsContent value="historial" className="mt-4">
           <div className="rounded-2xl bg-card border overflow-hidden">
-            {aftersales.length === 0 ? (
+            {visibleAfterSales.length === 0 ? (
               <p className="p-8 text-center text-muted-foreground text-sm">Sin operaciones de postventa</p>
             ) : (
               <ul className="divide-y">
-                {aftersales.map((a) => (
+                {visibleAfterSales.map((a) => (
                   <li key={a.id} className="px-4 py-3 flex items-center justify-between gap-3">
                     <div>
                       <p className="font-mono text-xs text-muted-foreground">{a.saleCode}</p>

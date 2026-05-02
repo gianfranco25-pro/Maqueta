@@ -24,7 +24,7 @@ export default function Settings() {
   }
 
   const submit = () => {
-    if (form.maxDiscountSoles < 0) return toast.error("El descuento maximo no puede ser negativo");
+    if (form.maxDiscountSoles < 0) return toast.error("La rebaja maxima por defecto no puede ser negativa");
     if (form.cardSurchargePct < 0) return toast.error("El recargo no puede ser negativo");
     if (form.commissionPerPair < 0) return toast.error("La comision no puede ser negativa");
     if (form.lowStockThreshold < 0) return toast.error("El umbral de stock no puede ser negativo");
@@ -35,21 +35,27 @@ export default function Settings() {
 
   return (
     <>
-      <PageHeader title="Configuracion" subtitle="Reglas comerciales y operativas" />
+      <PageHeader title="Configuracion" subtitle="Reglas generales usadas como valores por defecto" />
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="rounded-2xl bg-card border p-5 space-y-3">
           <h3 className="font-display font-bold">Reglas de venta</h3>
           <div>
-            <Label>Descuento maximo para colaborador (S/)</Label>
+            <Label>Rebaja maxima por defecto para nueva referencia (S/)</Label>
             <Input type="number" value={form.maxDiscountSoles} onChange={(event) => setForm({ ...form, maxDiscountSoles: +event.target.value })} />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Solo se usa como valor inicial. En Catalogo, cada referencia guarda su propio precio minimo cliente.
+            </p>
           </div>
           <div>
             <Label>Recargo tarjeta (%)</Label>
             <Input type="number" value={form.cardSurchargePct} onChange={(event) => setForm({ ...form, cardSurchargePct: +event.target.value })} />
           </div>
           <div>
-            <Label>Umbral stock bajo</Label>
+            <Label>Umbral global de stock bajo</Label>
             <Input type="number" value={form.lowStockThreshold} onChange={(event) => setForm({ ...form, lowStockThreshold: +event.target.value })} />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Se aplica a inventario y reportes, no al alta de referencias del catalogo.
+            </p>
           </div>
         </div>
 

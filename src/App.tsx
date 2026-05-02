@@ -16,8 +16,6 @@ import InventoryEntry from "./pages/InventoryEntry";
 import InventoryTransfers from "./pages/InventoryTransfers";
 import InventoryDeliveries from "./pages/InventoryDeliveries";
 import InventoryFaults from "./pages/InventoryFaults";
-import InventoryAdjustments from "./pages/InventoryAdjustments";
-import InventoryStorefront from "./pages/InventoryStorefront";
 import ScanPage from "./pages/ScanPage";
 import Sales from "./pages/Sales";
 import NewSale from "./pages/NewSale";
@@ -52,8 +50,6 @@ const App = () => (
             <Route path="/inventario/traslados" element={<InventoryTransfers />} />
             <Route path="/inventario/entregas" element={<InventoryDeliveries />} />
             <Route path="/inventario/fallas" element={<InventoryFaults />} />
-            <Route path="/inventario/ajustes" element={<InventoryAdjustments />} />
-            <Route path="/inventario/tienda" element={<InventoryStorefront />} />
             <Route path="/escanear" element={<ScanPage />} />
             <Route path="/ventas" element={<Sales />} />
             <Route path="/ventas/nueva" element={<NewSale />} />

@@ -22,6 +22,7 @@ type Filter = "todas" | "pendiente_cobro" | "confirmada" | "anulada";
 
 export default function Sales() {
   const allSales = useAppStore((s) => s.sales);
+  const locations = useAppStore((s) => s.locations);
   const voidSale = useAppStore((s) => s.voidSale);
   const user = useCurrentUser();
   const canViewAll = useCan("sales.view.all");
@@ -54,6 +55,7 @@ export default function Sales() {
   });
 
   const sale = open ? sales.find((s) => s.id === open) : null;
+  const saleLocationName = sale ? locations.find((location) => location.id === sale.locationId)?.name : undefined;
 
   return (
     <>
@@ -110,13 +112,23 @@ export default function Sales() {
           {sale && (
             <div className="space-y-3 text-sm">
               <p><strong>Colaborador:</strong> {sale.sellerName}</p>
+              {saleLocationName && <p><strong>Venta registrada en:</strong> {saleLocationName}</p>}
               {sale.customerPhone && <p><strong>Cliente:</strong> {sale.customerPhone}</p>}
               <p><strong>Fecha:</strong> {fmtDateTime(sale.timestamp)}</p>
               <div className="rounded-lg border p-3 space-y-1.5">
                 {sale.lines.map((l) => (
-                  <div key={l.unitCode} className="flex justify-between">
-                    <span className="font-mono text-xs">{l.unitCode}</span>
-                    <span>{fmtMoney(l.finalPrice)}</span>
+                  <div key={l.unitCode} className="flex justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="font-mono text-xs">{l.unitCode}</span>
+                      <p className="text-xs text-muted-foreground">{l.productLabel}</p>
+                      {l.sourceLocationName && (
+                        <p className="text-[11px] text-muted-foreground">
+                          Se saco de: {l.sourceLocationName}
+                          {l.takenFromStorageByName ? ` · Lo retiro ${l.takenFromStorageByName}` : ""}
+                        </p>
+                      )}
+                    </div>
+                    <span className="shrink-0">{fmtMoney(l.finalPrice)}</span>
                   </div>
                 ))}
               </div>

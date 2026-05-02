@@ -18,7 +18,7 @@ const now = () => new Date().toISOString();
 export const initialLocations: Location[] = [
   { id: "loc-tienda-centro", name: "Tienda Centro", type: "tienda", code: "T-01", active: true, createdAt: now() },
   { id: "loc-puesto-mall", name: "Tienda Mall Plaza", type: "tienda", code: "T-02", active: true, createdAt: now() },
-  { id: "loc-deposito-principal", name: "Deposito Principal", type: "deposito", code: "D-01", active: true, createdAt: now() },
+  { id: "loc-deposito-principal", name: "Almacen Principal", type: "deposito", code: "D-01", active: true, createdAt: now() },
   { id: "loc-almacen", name: "Almacen Central", type: "almacen", code: "A-01", active: true, createdAt: now() },
 ];
 
@@ -40,11 +40,11 @@ export const initialCatalogMasters: CatalogMasters = {
     { id: "brand-punto-blanco", name: "Punto Blanco", active: true, createdAt: now() },
   ],
   models: [
-    { id: "model-oxford-classic", brandId: "brand-bruno-magli", name: "Oxford Classic", active: true, createdAt: now() },
-    { id: "model-derby-premium", brandId: "brand-aldo", name: "Derby Premium", active: true, createdAt: now() },
-    { id: "model-mocasin-italia", brandId: "brand-renzo-costa", name: "Mocasín Italia", active: true, createdAt: now() },
-    { id: "model-correa-cuero-clasica", brandId: "brand-renzo-costa", name: "Correa cuero clásica", active: true, createdAt: now() },
-    { id: "model-medias-vestir", brandId: "brand-punto-blanco", name: "Medias de vestir", active: true, createdAt: now() },
+    { id: "model-oxford-classic", brandId: "brand-bruno-magli", type: "zapato", name: "Oxford Classic", active: true, createdAt: now() },
+    { id: "model-derby-premium", brandId: "brand-aldo", type: "zapato", name: "Derby Premium", active: true, createdAt: now() },
+    { id: "model-mocasin-italia", brandId: "brand-renzo-costa", type: "zapato", name: "Mocasín Italia", active: true, createdAt: now() },
+    { id: "model-correa-cuero-clasica", type: "accesorio", name: "Correa cuero clásica", active: true, createdAt: now() },
+    { id: "model-medias-vestir", type: "accesorio", name: "Medias de vestir", active: true, createdAt: now() },
   ],
   colors: [
     { id: "color-negro", name: "Negro", active: true, createdAt: now() },
@@ -78,8 +78,9 @@ function pad(n: number, len = 5) {
   return String(n).padStart(len, "0");
 }
 
-export function buildInitialInventory(): { items: InventoryItem[]; counters: Counters } {
+export function buildInitialInventory(): { items: InventoryItem[]; counters: Counters; movements: Movement[] } {
   const items: InventoryItem[] = [];
+  const movements: Movement[] = [];
   let pairSeq = 1;
   let accSeq = 1;
 
@@ -90,7 +91,7 @@ export function buildInitialInventory(): { items: InventoryItem[]; counters: Cou
   shoeProducts.forEach((p) => {
     for (let i = 0; i < 4; i++) {
       const code = `A${pad(pairSeq++)}`;
-      const loc = i < 1 ? "loc-tienda-centro" : i < 2 ? "loc-puesto-mall" : "loc-almacen";
+      const loc = i < 1 ? "loc-tienda-centro" : i < 2 ? "loc-puesto-mall" : i < 3 ? "loc-almacen" : "loc-deposito-principal";
       items.push({
         id: `inv-${code}-D`,
         productId: p.id,
@@ -117,7 +118,7 @@ export function buildInitialInventory(): { items: InventoryItem[]; counters: Cou
   accProducts.forEach((p) => {
     for (let i = 0; i < 6; i++) {
       const code = `B${pad(accSeq++)}`;
-      const loc = i < 2 ? "loc-tienda-centro" : i < 4 ? "loc-puesto-mall" : "loc-almacen";
+      const loc = i < 2 ? "loc-tienda-centro" : i < 4 ? "loc-puesto-mall" : i < 5 ? "loc-almacen" : "loc-deposito-principal";
       items.push({
         id: `inv-${code}`,
         productId: p.id,
@@ -129,7 +130,93 @@ export function buildInitialInventory(): { items: InventoryItem[]; counters: Cou
     }
   });
 
-  return { items, counters: { pairSeq, accSeq, saleSeq: 1 } };
+  const applyDelivery = ({
+    rawCode,
+    fromLocationId,
+    toLocationId,
+    receiverId,
+    receiverName,
+    byUserId,
+    byUserName,
+    minutesAgo,
+  }: {
+    rawCode: string;
+    fromLocationId: string;
+    toLocationId: string;
+    receiverId: string;
+    receiverName: string;
+    byUserId: string;
+    byUserName: string;
+    minutesAgo: number;
+  }) => {
+    const unitCodes = /^A\d{5}$/.test(rawCode) ? [`${rawCode}-D`, `${rawCode}-I`] : [rawCode];
+    unitCodes.forEach((unitCode) => {
+      const item = items.find((entry) => entry.unitCode === unitCode);
+      if (!item) return;
+      item.locationId = toLocationId;
+      item.responsibleUserId = receiverId;
+      item.responsibleName = receiverName;
+    });
+
+    movements.push({
+      id: `mv-seed-${rawCode}`,
+      type: "entrega",
+      unitCodes,
+      fromLocationId,
+      toLocationId,
+      byUserId,
+      byUserName,
+      byUserRole: "almacen",
+      receivedBy: receiverName,
+      timestamp: new Date(Date.now() - minutesAgo * 60 * 1000).toISOString(),
+    });
+  };
+
+  applyDelivery({
+    rawCode: "A00003",
+    fromLocationId: "loc-almacen",
+    toLocationId: "loc-tienda-centro",
+    receiverId: "u-vend-1",
+    receiverName: "Luis Colaborador",
+    byUserId: "u-almacen",
+    byUserName: "Pedro Almacén",
+    minutesAgo: 120,
+  });
+
+  applyDelivery({
+    rawCode: "A00007",
+    fromLocationId: "loc-almacen",
+    toLocationId: "loc-puesto-mall",
+    receiverId: "u-vend-2",
+    receiverName: "Ana Colaboradora",
+    byUserId: "u-almacen",
+    byUserName: "Pedro Almacén",
+    minutesAgo: 90,
+  });
+
+  applyDelivery({
+    rawCode: "B00005",
+    fromLocationId: "loc-almacen",
+    toLocationId: "loc-tienda-centro",
+    receiverId: "u-vend-1",
+    receiverName: "Luis Colaborador",
+    byUserId: "u-almacen",
+    byUserName: "Pedro Almacén",
+    minutesAgo: 60,
+  });
+
+  applyDelivery({
+    rawCode: "A00012",
+    fromLocationId: "loc-deposito-principal",
+    toLocationId: "loc-puesto-mall",
+    receiverId: "u-vend-2",
+    receiverName: "Ana Colaboradora",
+    byUserId: "u-vend-almacen",
+    byUserName: "Rosa Colaborador Almacén",
+    minutesAgo: 30,
+  });
+
+  return { items, counters: { pairSeq, accSeq, saleSeq: 1 }, movements };
 }
 
 export const initialSettings: AppSettings = {
@@ -140,7 +227,8 @@ export const initialSettings: AppSettings = {
   paymentPolicy: "Liquidacion semanal: se descuentan todos los adelantos registrados; si superan la comision, el pago queda en S/ 0 y el saldo se descuenta luego.",
 };
 
-export const initialMovements: Movement[] = [];
+export const initialInventorySeed = buildInitialInventory();
+export const initialMovements: Movement[] = initialInventorySeed.movements;
 export const initialSales: Sale[] = [];
 export const initialAfterSales: AfterSale[] = [];
 export const initialAttendance: AttendanceRecord[] = [];

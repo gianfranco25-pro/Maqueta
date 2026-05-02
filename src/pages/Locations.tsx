@@ -32,7 +32,7 @@ import { fmtDate } from "@/lib/format";
 import { Building2, MapPin, Plus, Power, Store } from "lucide-react";
 import { toast } from "sonner";
 
-const LOCATION_TYPES: LocationType[] = ["tienda", "deposito", "almacen", "otro"];
+const LOCATION_TYPES: LocationType[] = ["tienda", "almacen", "otro"];
 
 type LocationForm = {
   name: string;
@@ -83,7 +83,7 @@ export default function Locations() {
     setEditingId(id);
     setForm({
       name: location.name,
-      type: location.type,
+      type: isStorageLocation(location) ? "almacen" : location.type,
       code: location.code || "",
       address: location.address || "",
       notes: location.notes || "",
@@ -117,7 +117,7 @@ export default function Locations() {
     <>
       <PageHeader
         title="Ubicaciones"
-        subtitle="Tiendas, depositos, almacenes y otras ubicaciones operativas"
+        subtitle="Tiendas, almacenes y otras ubicaciones operativas"
         action={
           <Button onClick={openNew} className="bg-foreground text-background hover:bg-foreground/90">
             <Plus className="size-4 mr-1" /> Nueva
@@ -128,7 +128,7 @@ export default function Locations() {
       <div className="grid grid-cols-3 gap-3 mb-6">
         <StatCard label="Activas" value={stats.active} icon={MapPin} />
         <StatCard label="Venta" value={stats.operational} icon={Store} tone="gold" />
-        <StatCard label="Deposito/almacen" value={stats.storage} icon={Building2} />
+        <StatCard label="Almacen" value={stats.storage} icon={Building2} />
       </div>
 
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">

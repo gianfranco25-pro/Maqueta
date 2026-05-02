@@ -10,7 +10,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   admin: "Administrador general",
   vendedor: "Colaborador",
   cajero: "Caja",
-  almacen: "Almacén",
+  almacen: "Almacen",
 };
 
 const LEGACY_REMOVED_ROLE = ["admin", "istrativo"].join("");
@@ -57,7 +57,7 @@ export type LocationType = "tienda" | "puesto" | "deposito" | "almacen" | "otro"
 export const LOCATION_TYPE_LABELS: Record<LocationType, string> = {
   tienda: "Tienda",
   puesto: "Tienda",
-  deposito: "Deposito",
+  deposito: "Almacen",
   almacen: "Almacen",
   otro: "Otro",
 };
@@ -118,7 +118,8 @@ export type CatalogMaster = {
 };
 
 export type ModelMaster = CatalogMaster & {
-  brandId: string;
+  brandId?: string;
+  type: ProductType;
 };
 
 export type CatalogMasters = {
@@ -128,16 +129,16 @@ export type CatalogMasters = {
   sizes: CatalogMaster[];
 };
 
-export type PriceMode = "base" | "talla_exacta" | "rango_tallas";
+export type PriceMode = "base" | "rango_tallas" | "talla_exacta";
 
 export type SizePriceRule = {
   id: string;
-  label: string;
+  label?: string;
   minSize?: number;
   maxSize?: number;
   size?: string;
   basePrice: number;
-  wholesalePrice: number;
+  wholesalePrice?: number;
 };
 
 export type Product = {
@@ -146,18 +147,18 @@ export type Product = {
   brand: string;
   model: string;
   color: string;
-  size?: string; // talla, solo zapatos
+  size?: string; // solo zapato
   cost: number;
   basePrice: number;
-  wholesalePrice: number;
-  maxDiscountSoles: number;
+  wholesalePrice?: number;
+  maxDiscountSoles?: number;
   priceMode?: PriceMode;
   sizePrices?: SizePriceRule[];
-  active: boolean;
+  active?: boolean;
   createdAt: string;
 };
 
-export type PieceSide = "D" | "I"; // derecha / izquierda
+export type PieceSide = "D" | "I";
 export type ItemStatus =
   | "disponible"
   | "vendido"
@@ -172,7 +173,7 @@ export type InventoryItem = {
   // Para zapatos
   pairCode?: string; // ej "A00001"
   side?: PieceSide; // D o I, omitido en accesorios
-  // Común
+  // Comun
   unitCode: string; // zapatos: "A00001-D", accesorios: "B00001"
   status: ItemStatus;
   locationId: string;
@@ -188,7 +189,6 @@ export type MovementType =
   | "entrega"
   | "venta"
   | "falla"
-  | "ajuste"
   | "devolucion";
 
 export type Movement = {
@@ -217,6 +217,11 @@ export type SaleLine = {
   productId: string;
   productLabel: string;
   unitCode: string; // par o unidad
+  sourceLocationId?: string;
+  sourceLocationName?: string;
+  sourceUnitCodes?: string[];
+  sourceUnitStatuses?: Partial<Record<string, ItemStatus>>;
+  takenFromStorageByName?: string;
   cost: number;
   basePrice: number;
   finalPrice: number;
@@ -234,24 +239,68 @@ export type Sale = {
   sellerRole?: Role;
   cashierId?: string;
   cashierRole?: Role;
-  locationId: string;
   customerPhone?: string;
+  locationId?: string;
+  locationName?: string;
   lines: SaleLine[];
-  subtotal: number; // suma finalPrice
-  totalSurcharge: number;
-  total: number; // subtotal + recargo
-  payments: PaymentSplit[];
-  commissionPerPair?: number;
-  commissionTotal?: number;
+  subtotal: number;
+  totalDiscount: number;
+  total: number; // con recargos si aplica
   utilityTotal?: number;
-  authorizedById?: string; // si requirió autorización por descuento
+  paymentMethod: PaymentMethod | "mixto";
+  paymentSplits?: PaymentSplit[];
+  cardSurchargePercent?: number;
+  cardSurchargeAmount?: number;
+  paidAmount: number;
+  pendingAmount: number;
   status: "pendiente_cobro" | "confirmada" | "anulada" | "corregida";
-  voidReason?: string;
-  timestamp: string; // creación
-  paidAt?: string; // confirmación de cobro
-  paidByCashierId?: string;
-  paidByCashierName?: string;
-  paidByCashierRole?: Role;
+  createdAt: string;
+  confirmedAt?: string;
+  notes?: string;
+};
+
+export type AuthorizationKind = "descuento" | "precio_mayor" | "anulacion" | "correccion";
+
+export type AuthorizationRequest = {
+  id: string;
+  kind: AuthorizationKind;
+  requestedById: string;
+  requestedByName: string;
+  requestedRole?: Role;
+  saleId?: string;
+  saleCode?: string;
+  detail: string;
+  status: "pendiente" | "aprobada" | "rechazada";
+  approvedById?: string;
+  approvedByName?: string;
+  approvedAt?: string;
+  reason?: string;
+  createdAt: string;
+};
+
+export type AfterSale = {
+  id: string;
+  saleId: string;
+  saleCode: string;
+  oldUnitCode: string;
+  newUnitCode: string;
+  oldProductLabel: string;
+  newProductLabel: string;
+  oldPrice: number;
+  newPrice: number;
+  difference: number;
+  handledById: string;
+  handledByName: string;
+  handledByRole?: Role;
+  createdAt: string;
+};
+
+export type AppSettings = {
+  maxDiscountSoles: number;
+  cardSurchargePercent: number;
+  lowStockThreshold: number;
+  commissionPerPair: number;
+  liquidationCutoffDay: number;
 };
 
 export type AdvanceRecord = {
@@ -259,49 +308,12 @@ export type AdvanceRecord = {
   userId: string;
   userName: string;
   amount: number;
-  reason: string;
-  paymentDate?: string;
-  byUserId: string;
-  byUserName: string;
-  timestamp: string;
-};
-
-export type AfterSale = {
-  id: string;
-  type: "cambio" | "compra_error" | "correccion" | "anulacion";
-  saleId: string;
-  saleCode: string;
-  byUserId: string;
-  byUserName: string;
-  byUserRole?: Role;
-  reason: string;
-  diff?: number; // diferencia de precio en cambios
-  timestamp: string;
-};
-
-export type AuthorizationRequest = {
-  id: string;
-  type: "descuento_excedido" | "anulacion" | "correccion" | "otro";
-  requestedBy: string;
-  requestedByName: string;
-  detail: string;
-  amount?: number;
-  status: "pendiente" | "aprobada" | "rechazada";
-  resolvedBy?: string;
-  resolvedAt?: string;
-  timestamp: string;
-};
-
-export type AppSettings = {
-  maxDiscountSoles: number; // descuento máx para colaborador en S/
-  cardSurchargePct: number; // % recargo tarjeta
-  commissionPerPair: number; // S/ por par vendido
-  lowStockThreshold: number;
-  paymentPolicy: string;
+  note?: string;
+  createdAt: string;
 };
 
 export type Counters = {
-  pairSeq: number; // siguiente número para zapatos (A00001)
-  accSeq: number; // siguiente número para accesorios (B00001)
+  pairSeq: number;
+  accSeq: number;
   saleSeq: number;
 };

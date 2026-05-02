@@ -6,7 +6,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { fmtMoney } from "@/lib/format";
-import { AlertTriangle, ArrowDownToLine, Package, Receipt, ShoppingCart, SlidersHorizontal, Store, Truck } from "lucide-react";
+import { AlertTriangle, ArrowDownToLine, Package, Receipt, ShoppingCart, Truck } from "lucide-react";
 import { useCan } from "@/components/Can";
 import { ROLE_LABELS } from "@/lib/types";
 import { getProductPrices } from "@/lib/pricing";
@@ -22,8 +22,6 @@ export default function ScanPage() {
   const canTransfer = useCan("inventory.transfer");
   const canDelivery = useCan("inventory.delivery");
   const canFault = useCan("inventory.fault");
-  const canAdjust = useCan("inventory.adjust");
-  const canStorefront = useCan("inventory.storefront");
   const canViewPriceAdmin = useCan("catalog.prices.edit");
   const canViewProfit = useCan("profit.view");
   const [scanned, setScanned] = useState<string | null>(null);
@@ -108,14 +106,19 @@ export default function ScanPage() {
                 </div>
                 <div className="mt-3 flex items-end justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground">Precio base</p>
+                    <p className="text-xs text-muted-foreground">Precio de venta</p>
                     <p className="font-display font-extrabold text-xl">{fmtMoney(prices?.basePrice || 0)}</p>
                   </div>
                   <div className="text-right text-xs text-muted-foreground">
                     {canViewPriceAdmin && <p>Precio por mayor: {fmtMoney(prices?.wholesalePrice || 0)}</p>}
-                    {canViewProfit && <p>Utilidad base: {fmtMoney((prices?.basePrice || 0) - (prices?.cost || 0))}</p>}
+                    {canViewProfit && <p>Ganancia estimada: {fmtMoney((prices?.basePrice || 0) - (prices?.cost || 0))}</p>}
                   </div>
                 </div>
+                {item.status === "con_falla" && (
+                  <p className="mt-3 text-xs text-critical">
+                    Este producto sigue disponible, pero tiene una falla registrada.
+                  </p>
+                )}
               </div>
 
               {item.pairCode && (
@@ -152,17 +155,7 @@ export default function ScanPage() {
                 )}
                 {canFault && (
                   <Link to="/inventario/fallas" state={{ prefillUnit: item.unitCode }}>
-                    <Button variant="outline" className="w-full h-12"><AlertTriangle className="size-4 mr-1" /> Falla</Button>
-                  </Link>
-                )}
-                {canAdjust && (
-                  <Link to="/inventario/ajustes" state={{ prefillUnit: actionCode }}>
-                    <Button variant="outline" className="w-full h-12"><SlidersHorizontal className="size-4 mr-1" /> Ajustar</Button>
-                  </Link>
-                )}
-                {canStorefront && (
-                  <Link to="/inventario/tienda">
-                    <Button variant="outline" className="w-full h-12"><Store className="size-4 mr-1" /> Tienda</Button>
+                    <Button variant="outline" className="w-full h-12"><AlertTriangle className="size-4 mr-1" /> Marcar falla</Button>
                   </Link>
                 )}
                 <Button variant="outline" className="w-full h-12" onClick={() => setScanned(null)}>

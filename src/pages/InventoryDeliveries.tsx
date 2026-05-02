@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { PageHeader } from "@/components/AppShell";
-import { useAppStore, useCurrentUser } from "@/lib/store";
+import { InventoryCodeSummaryList } from "@/components/InventoryCodeSummaryList";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,23 +12,61 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { isPairCode, QRScanner } from "@/components/QRScanner";
+import { QRScanner } from "@/components/QRScanner";
+import { useAppStore, useCurrentUser } from "@/lib/store";
 import { toast } from "sonner";
 import { fmtDateTime } from "@/lib/format";
+import {
+  expandSelectionCodes,
+  mergePairSelectionModes,
+  normalizeInventoryOperationCode,
+  pairSelectionModeFromRawCode,
+  PairSelectionMode,
+  summarizeMovementUnitCodes,
+  summarizeSelectionCodes,
+} from "@/lib/inventory-code-summary";
 import { isLocationActive, LOCATION_TYPE_LABELS, operationalRoleFor, ROLE_LABELS } from "@/lib/types";
 
 export default function InventoryDeliveries() {
   const loc = useLocation();
   const inventory = useAppStore((s) => s.inventory);
+  const products = useAppStore((s) => s.products);
   const locations = useAppStore((s) => s.locations);
-  const movements = useAppStore((s) => s.movements).filter((m) => m.type === "entrega");
+  const users = useAppStore((s) => s.users);
+  const movements = useAppStore((s) => s.movements).filter((movement) => movement.type === "entrega");
   const deliver = useAppStore((s) => s.deliverFromWarehouse);
   const user = useCurrentUser();
   const activeLocations = locations.filter(isLocationActive);
+  const activeUsers = useMemo(
+    () => users.filter((entry) => entry.active).sort((a, b) => a.name.localeCompare(b.name)),
+    [users]
+  );
 
   const [codes, setCodes] = useState<string[]>([]);
-  const [received, setReceived] = useState("");
-  const [toLocationId, setToLocationId] = useState(activeLocations[0]?.id || "");
+  const [receiverId, setReceiverId] = useState("");
+  const [otherReceiverName, setOtherReceiverName] = useState("");
+  const [toLocationId, setToLocationId] = useState("");
+  const [pairModes, setPairModes] = useState<Record<string, PairSelectionMode>>({});
+
+  const selectedReceiver = activeUsers.find((entry) => entry.id === receiverId);
+  const selectedReceiverLocation = selectedReceiver
+    ? locations.find((location) => location.id === selectedReceiver.locationId)
+    : undefined;
+  const isOtherReceiver = receiverId === "__other__";
+
+  const selectedSummaries = useMemo(
+    () => summarizeSelectionCodes(codes, inventory, products, locations, pairModes),
+    [codes, inventory, products, locations, pairModes]
+  );
+
+  const movementRows = useMemo(
+    () =>
+      movements.map((movement) => ({
+        movement,
+        summaries: summarizeMovementUnitCodes(movement.unitCodes, inventory, products, locations),
+      })),
+    [movements, inventory, products, locations]
+  );
 
   useEffect(() => {
     const prefill = (loc.state as any)?.prefillUnit;
@@ -36,24 +74,55 @@ export default function InventoryDeliveries() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const addCode = (c: string) => {
-    const code = c.toUpperCase();
-    if (codes.includes(code)) return;
-    const exists = isPairCode(code)
-      ? inventory.some((i) => i.unitCode === `${code}-D`) && inventory.some((i) => i.unitCode === `${code}-I`)
-      : inventory.some((i) => i.unitCode === code);
-    if (!exists) return toast.error("Código no existe");
-    setCodes([...codes, code]);
+  const addCode = (rawCode: string) => {
+    try {
+      const normalizedCode = normalizeInventoryOperationCode(rawCode, inventory);
+      const incomingMode = pairSelectionModeFromRawCode(rawCode);
+      if (!normalizedCode) return;
+
+      if (codes.includes(normalizedCode)) {
+        setPairModes((current) => ({
+          ...current,
+          [normalizedCode]: mergePairSelectionModes(current[normalizedCode], incomingMode),
+        }));
+        return;
+      }
+
+      setCodes([...codes, normalizedCode]);
+      if (normalizedCode.startsWith("A")) {
+        setPairModes((current) => ({
+          ...current,
+          [normalizedCode]: incomingMode,
+        }));
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo cargar el codigo");
+    }
   };
 
   const submit = () => {
     if (!user) return;
-    if (codes.length === 0 || !received) return toast.error("Indica códigos y quién recibe");
+    const receiverName = isOtherReceiver ? otherReceiverName.trim() : selectedReceiver?.name || "";
+    if (codes.length === 0) return toast.error("Indica los codigos");
+    if (!receiverId) return toast.error("Selecciona quien recibe");
+    if (!receiverName) return toast.error("Indica quien recibe");
+    if (isOtherReceiver && !toLocationId) return toast.error("Selecciona ubicacion destino para Otros");
     try {
-      deliver(codes, user.id, user.name, operationalRoleFor(user, "almacen"), received, toLocationId);
+      const unitCodes = expandSelectionCodes(codes, inventory, pairModes);
+      deliver(
+        unitCodes,
+        user.id,
+        user.name,
+        operationalRoleFor(user, "almacen"),
+        receiverName,
+        isOtherReceiver ? toLocationId || undefined : undefined
+      );
       toast.success("Entrega registrada");
       setCodes([]);
-      setReceived("");
+      setReceiverId("");
+      setOtherReceiverName("");
+      setToLocationId("");
+      setPairModes({});
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo registrar la entrega");
     }
@@ -61,55 +130,113 @@ export default function InventoryDeliveries() {
 
   return (
     <>
-      <PageHeader title="Entregas desde depósito" />
+      <PageHeader title="Entregas desde almacen" subtitle="Entrega pares completos o unidades con responsable y destino" />
+
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="rounded-2xl bg-card border p-5 space-y-4">
           <QRScanner onResult={addCode} allowPairCodes />
-          <div className="rounded-lg border p-3">
-            <p className="text-xs uppercase font-semibold text-muted-foreground mb-2">Items a entregar</p>
-            {codes.length === 0 ? <p className="text-sm text-muted-foreground">Escanea códigos o pares completos</p> :
-              <ul className="space-y-1">
-                {codes.map((c) => (
-                  <li key={c} className="flex justify-between bg-secondary rounded px-2 py-1 text-sm">
-                    <span className="font-mono">{c}</span>
-                    <button onClick={() => setCodes(codes.filter((x) => x !== c))} className="text-critical text-xs">Quitar</button>
-                  </li>
-                ))}
-              </ul>
-            }
+
+          <div className="rounded-xl bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+            Si ingresas A00001, A00001-D o A00001-I, veras el par y podras entregar ambos o solo un lado.
           </div>
-          <Input placeholder="Quien recibe (usuario u otros, nombre exacto)" value={received} onChange={(e) => setReceived(e.target.value)} />
+
+          <div className="space-y-2">
+            <p className="text-xs uppercase font-semibold tracking-wider text-muted-foreground">Items a entregar</p>
+            <InventoryCodeSummaryList
+              items={selectedSummaries}
+              emptyText="Escanea un par o una unidad para preparar la entrega"
+              onRemove={(rawCode) => {
+                setCodes(codes.filter((code) => code !== rawCode));
+                setPairModes((current) => {
+                  const next = { ...current };
+                  delete next[rawCode];
+                  return next;
+                });
+              }}
+              pairModes={pairModes}
+              onChangePairMode={(key, mode) => setPairModes((current) => ({ ...current, [key]: mode }))}
+            />
+          </div>
+
           <div>
-            <Label>Ubicacion destino para otros</Label>
-            <Select value={toLocationId} onValueChange={setToLocationId}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Label>Quien recibe</Label>
+            <Select value={receiverId} onValueChange={setReceiverId}>
+              <SelectTrigger><SelectValue placeholder="Selecciona usuario u Otros" /></SelectTrigger>
               <SelectContent>
-                {activeLocations.map((location) => (
-                  <SelectItem key={location.id} value={location.id}>
-                    {location.name} ({LOCATION_TYPE_LABELS[location.type]})
-                  </SelectItem>
-                ))}
+                {activeUsers.map((entry) => {
+                  const location = locations.find((item) => item.id === entry.locationId);
+                  return (
+                    <SelectItem key={entry.id} value={entry.id}>
+                      {entry.name} ({ROLE_LABELS[entry.role]}){location ? ` - ${location.name}` : ""}
+                    </SelectItem>
+                  );
+                })}
+                <SelectItem value="__other__">Otros</SelectItem>
               </SelectContent>
             </Select>
+            {selectedReceiver && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Destino automatico: {selectedReceiverLocation?.name || "Ubicacion asignada"}
+              </p>
+            )}
           </div>
-          <Button onClick={submit} className="w-full bg-foreground text-background hover:bg-foreground/90">Registrar entrega</Button>
+
+          {isOtherReceiver && (
+            <div>
+              <Label>Nombre de quien recibe</Label>
+              <Input
+                placeholder="Nombre exacto"
+                value={otherReceiverName}
+                onChange={(e) => setOtherReceiverName(e.target.value)}
+              />
+            </div>
+          )}
+
+          {isOtherReceiver && (
+            <div>
+              <Label>Ubicacion destino</Label>
+              <Select value={toLocationId} onValueChange={setToLocationId}>
+                <SelectTrigger><SelectValue placeholder="Selecciona ubicacion" /></SelectTrigger>
+                <SelectContent>
+                  {activeLocations.map((location) => (
+                    <SelectItem key={location.id} value={location.id}>
+                      {location.name} ({LOCATION_TYPE_LABELS[location.type]})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Usa esta opcion cuando quien recibe no esta creado como usuario del sistema.
+              </p>
+            </div>
+          )}
+
+          <Button onClick={submit} className="h-12 w-full bg-foreground text-background hover:bg-foreground/90">
+            Registrar entrega
+          </Button>
         </div>
+
         <div className="rounded-2xl bg-card border overflow-hidden">
           <div className="px-4 py-3 border-b font-display font-bold">Historial de entregas</div>
-          {movements.length === 0 ? <p className="p-6 text-center text-sm text-muted-foreground">Sin entregas</p> :
-            <ul className="divide-y max-h-96 overflow-y-auto">
-              {movements.map((mv) => (
-                <li key={mv.id} className="px-4 py-3 text-sm">
-                  <p className="font-mono text-xs">{mv.unitCodes.join(", ")}</p>
+          {movementRows.length === 0 ? (
+            <p className="p-6 text-center text-sm text-muted-foreground">Sin entregas</p>
+          ) : (
+            <ul className="divide-y max-h-[520px] overflow-y-auto">
+              {movementRows.map(({ movement, summaries }) => (
+                <li key={movement.id} className="px-4 py-3 space-y-3">
                   <p className="text-xs text-muted-foreground">
-                    {mv.byUserName}{mv.byUserRole ? ` (${ROLE_LABELS[mv.byUserRole]})` : ""} → {mv.receivedBy}
-                    {mv.toLocationId ? ` - ${locations.find((location) => location.id === mv.toLocationId)?.name || "Destino"}` : ""}
-                    {" "}· {fmtDateTime(mv.timestamp)}
+                    {movement.byUserName}
+                    {movement.byUserRole ? ` (${ROLE_LABELS[movement.byUserRole]})` : ""}
+                    {` -> ${movement.receivedBy}`}
+                    {movement.toLocationId ? ` - ${locations.find((location) => location.id === movement.toLocationId)?.name || "Destino"}` : ""}
+                    {" · "}
+                    {fmtDateTime(movement.timestamp)}
                   </p>
+                  <InventoryCodeSummaryList items={summaries} />
                 </li>
               ))}
             </ul>
-          }
+          )}
         </div>
       </div>
     </>
