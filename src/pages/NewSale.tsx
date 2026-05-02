@@ -123,6 +123,12 @@ const candidatePriority = (candidate: SaleCandidate, userLocationId?: string, lo
   return isStorageLocation(location) ? 1 : 2;
 };
 
+const lineCodesLabel = (line: SaleLine) =>
+  line.sourceUnitCodes?.length ? line.sourceUnitCodes.join(" · ") : line.unitCode;
+
+const minimumSalePrice = (line: SaleLine, fallbackMaxDiscount: number) =>
+  Math.max(0, line.basePrice - (line.maxDiscountSoles ?? fallbackMaxDiscount));
+
 export default function NewSale() {
   const navigate = useNavigate();
   const loc = useLocation();
@@ -132,7 +138,6 @@ export default function NewSale() {
   const locations = useAppStore((s) => s.locations);
   const settings = useAppStore((s) => s.settings);
   const createDraftSale = useAppStore((s) => s.createDraftSale);
-  const requestAuth = useAppStore((s) => s.requestAuthorization);
 
   const [lines, setLines] = useState<SaleLine[]>([]);
   const [customerPhone, setCustomerPhone] = useState("");
@@ -283,14 +288,7 @@ export default function NewSale() {
     }
 
     if (exceedsDiscount) {
-      requestAuth({
-        type: "descuento_excedido",
-        requestedBy: user.id,
-        requestedByName: user.name,
-        detail: `Descuento ${fmtMoney(discountTotal)} excede limite por producto ${fmtMoney(allowedDiscountTotal)}`,
-        amount: discountTotal,
-      });
-      toast.error("Descuento excede limite. Solicitud enviada al administrador.");
+      toast.error(`Descuento excede el limite permitido de ${fmtMoney(allowedDiscountTotal)}.`);
       return;
     }
 
@@ -305,7 +303,7 @@ export default function NewSale() {
       totalSurcharge: surchargeTotal,
       total: totalDue,
     });
-    toast.success(`Venta ${sale.code} enviada a caja`, {
+    toast.success("Operacion enviada a caja", {
       description: remaining > 0.001
         ? `Queda pendiente por ${fmtMoney(remaining)} hasta que caja confirme`
         : "Caja revisara y confirmara el cobro",
@@ -381,12 +379,14 @@ export default function NewSale() {
                 {lines.map((line, index) => (
                   <li key={line.unitCode} className="p-4 flex flex-col sm:flex-row gap-3 sm:items-center">
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-mono text-muted-foreground">{line.unitCode} - {line.isPair ? "PAR" : "UNIDAD"}</p>
+                      <p className="text-xs font-mono text-muted-foreground break-all">
+                        {lineCodesLabel(line)}
+                      </p>
                       <p className="font-medium truncate">{line.productLabel}</p>
                       <p className="text-xs text-muted-foreground">
                         Precio de venta {fmtMoney(line.basePrice)}
+                        {` · Precio minimo permitido ${fmtMoney(minimumSalePrice(line, settings.maxDiscountSoles))}`}
                         {line.discount > 0 ? ` - Descuento ${fmtMoney(line.discount)}` : ""}
-                        {` - Max ${fmtMoney(line.maxDiscountSoles ?? settings.maxDiscountSoles)}`}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Se saca de: {line.sourceLocationName || "Sin ubicacion"}
@@ -523,7 +523,7 @@ export default function NewSale() {
             {exceedsDiscount && (
               <div className="rounded-lg bg-critical/20 text-background p-2 text-xs flex items-start gap-2 mt-2">
                 <ShieldAlert className="size-4 shrink-0 mt-0.5" />
-                <span>Descuento excede el maximo permitido. Requiere autorizacion.</span>
+                <span>Descuento excede el maximo permitido. Corrige el precio antes de enviarlo.</span>
               </div>
             )}
             <Button

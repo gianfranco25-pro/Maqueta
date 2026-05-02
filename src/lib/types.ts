@@ -6,6 +6,18 @@ export type Role =
   | "cajero"
   | "almacen";
 
+export type PaymentWeekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+export const PAYMENT_WEEKDAY_LABELS: Record<PaymentWeekday, string> = {
+  1: "Lunes",
+  2: "Martes",
+  3: "Miercoles",
+  4: "Jueves",
+  5: "Viernes",
+  6: "Sabado",
+  7: "Domingo",
+};
+
 export const ROLE_LABELS: Record<Role, string> = {
   admin: "Administrador general",
   vendedor: "Colaborador",
@@ -92,6 +104,8 @@ export type User = {
   role: Role;
   roles?: Role[];
   locationId: string;
+  commissionPerPair?: number;
+  paymentWeekday?: PaymentWeekday;
   active: boolean;
   createdAt: string;
 };
@@ -246,6 +260,8 @@ export type Sale = {
   subtotal: number;
   totalDiscount: number;
   total: number; // con recargos si aplica
+  commissionPerPair?: number;
+  commissionTotal?: number;
   utilityTotal?: number;
   paymentMethod: PaymentMethod | "mixto";
   paymentSplits?: PaymentSplit[];
@@ -259,48 +275,50 @@ export type Sale = {
   notes?: string;
 };
 
-export type AuthorizationKind = "descuento" | "precio_mayor" | "anulacion" | "correccion";
-
-export type AuthorizationRequest = {
-  id: string;
-  kind: AuthorizationKind;
-  requestedById: string;
-  requestedByName: string;
-  requestedRole?: Role;
-  saleId?: string;
-  saleCode?: string;
-  detail: string;
-  status: "pendiente" | "aprobada" | "rechazada";
-  approvedById?: string;
-  approvedByName?: string;
-  approvedAt?: string;
-  reason?: string;
-  createdAt: string;
-};
+export type AfterSaleType = "cambio" | "devolucion" | "compra_error" | "anulacion";
 
 export type AfterSale = {
   id: string;
+  type: AfterSaleType;
   saleId: string;
-  saleCode: string;
-  oldUnitCode: string;
-  newUnitCode: string;
-  oldProductLabel: string;
-  newProductLabel: string;
-  oldPrice: number;
-  newPrice: number;
-  difference: number;
-  handledById: string;
-  handledByName: string;
+  saleCode?: string;
+  oldUnitCode?: string;
+  newUnitCode?: string;
+  oldProductLabel?: string;
+  newProductLabel?: string;
+  oldPrice?: number;
+  newPrice?: number;
+  difference?: number;
+  diff?: number;
+  refundAmount?: number;
+  paymentMethod?: PaymentMethod | "mixto";
+  paymentSplits?: PaymentSplit[];
+  totalSurcharge?: number;
+  totalDue?: number;
+  paidAmount?: number;
+  pendingAmount?: number;
+  paymentStatus?: "pendiente_caja" | "confirmado_caja" | "no_aplica";
+  cashierId?: string;
+  cashierName?: string;
+  cashierRole?: Role;
+  confirmedAt?: string;
+  returnedToLocationName?: string;
+  fromLocationName?: string;
+  handledById?: string;
+  handledByName?: string;
   handledByRole?: Role;
-  createdAt: string;
+  byUserId?: string;
+  byUserName?: string;
+  byUserRole?: Role;
+  reason: string;
+  timestamp: string;
+  createdAt?: string;
 };
 
 export type AppSettings = {
   maxDiscountSoles: number;
-  cardSurchargePercent: number;
+  cardSurchargePct: number;
   lowStockThreshold: number;
-  commissionPerPair: number;
-  liquidationCutoffDay: number;
 };
 
 export type AdvanceRecord = {

@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/AppShell";
-import { isPairCode, isSaleCode, QRScanner } from "@/components/QRScanner";
+import { isPairCode, QRScanner } from "@/components/QRScanner";
 import { useAppStore, useCurrentRole } from "@/lib/store";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { fmtMoney } from "@/lib/format";
-import { AlertTriangle, ArrowDownToLine, Package, Receipt, ShoppingCart, Truck } from "lucide-react";
+import { AlertTriangle, ArrowDownToLine, Package, ShoppingCart, Truck } from "lucide-react";
 import { useCan } from "@/components/Can";
 import { ROLE_LABELS } from "@/lib/types";
 import { getProductPrices } from "@/lib/pricing";
@@ -15,7 +15,6 @@ export default function ScanPage() {
   const inventory = useAppStore((s) => s.inventory);
   const products = useAppStore((s) => s.products);
   const locations = useAppStore((s) => s.locations);
-  const sales = useAppStore((s) => s.sales);
   const role = useCurrentRole();
   const canSell = useCan("sales.create");
   const canCollect = useCan("sales.collect");
@@ -26,7 +25,6 @@ export default function ScanPage() {
   const canViewProfit = useCan("profit.view");
   const [scanned, setScanned] = useState<string | null>(null);
 
-  const sale = scanned && isSaleCode(scanned) ? sales.find((item) => item.code === scanned) : null;
   const scannedPair = scanned && isPairCode(scanned) ? inventory.filter((item) => item.pairCode === scanned) : [];
   const item = scanned ? inventory.find((inv) => inv.unitCode === scanned) || scannedPair[0] || null : null;
   const product = item ? products.find((p) => p.id === item.productId) : null;
@@ -43,9 +41,8 @@ export default function ScanPage() {
         <div className="rounded-2xl bg-card border border-border/60 p-4 sm:p-5">
           <QRScanner
             onResult={(code) => setScanned(code)}
-            expectedHint="Escanea productos, pares completos o ventas pendientes"
+            expectedHint="Escanea productos, pares completos o piezas"
             allowPairCodes
-            allowSaleCodes
           />
         </div>
 
@@ -53,42 +50,9 @@ export default function ScanPage() {
           <h2 className="font-display font-bold mb-3">Resultado</h2>
           {!scanned && <p className="text-sm text-muted-foreground">Aun no escaneas nada.</p>}
 
-          {scanned && !item && !sale && (
+          {scanned && !item && (
             <div className="rounded-xl bg-critical-soft text-critical p-4 text-sm">
               Codigo <span className="font-mono font-bold">{scanned}</span> no encontrado.
-            </div>
-          )}
-
-          {sale && (
-            <div className="space-y-4">
-              <div className="rounded-xl border border-border bg-secondary/40 p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-mono text-xs text-muted-foreground">{sale.code}</p>
-                    <p className="font-display font-bold text-lg">{sale.sellerName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {sale.lines.length} items - {fmtMoney(sale.status === "pendiente_cobro" ? sale.subtotal : sale.total)}
-                    </p>
-                  </div>
-                  <StatusBadge kind={sale.status} />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {canCollect && sale.status === "pendiente_cobro" && (
-                  <Link to="/ventas/por-cobrar" state={{ saleCode: sale.code }}>
-                    <Button className="w-full h-12 bg-foreground text-background hover:bg-foreground/90">
-                      <Receipt className="size-4 mr-1" /> Cobrar ahora
-                    </Button>
-                  </Link>
-                )}
-                <Link to="/ventas">
-                  <Button variant="outline" className="w-full h-12"><Receipt className="size-4 mr-1" /> Ver venta</Button>
-                </Link>
-                <Button variant="outline" className="w-full h-12" onClick={() => setScanned(null)}>
-                  <Package className="size-4 mr-1" /> Escanear otro
-                </Button>
-              </div>
             </div>
           )}
 

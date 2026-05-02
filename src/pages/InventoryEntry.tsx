@@ -146,7 +146,7 @@ type ReferenceSection = {
 const BASE_INVENTORY_CODE_PATTERN = /^[A-Z]\d{5}$/;
 const SHOE_PAIR_CODE_PATTERN = BASE_INVENTORY_CODE_PATTERN;
 const SHOE_UNIT_CODE_PATTERN = /^([A-Z]\d{5})-(D|I)$/;
-const ACCESSORY_UNIT_CODE_PATTERN = /^(?:[A-Z]\d{5}|[A-Z]\d{5}-(D|I))$/;
+const ACCESSORY_UNIT_CODE_PATTERN = /^[A-Z]\d{5}-(D|I)$/;
 
 const uniqueSorted = (values: (string | undefined)[]) =>
   Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
@@ -399,7 +399,7 @@ export default function InventoryEntry() {
         map.set(key, {
           key,
           type: modelType,
-          brand: brand?.name || "",
+          brand: modelType === "accesorio" ? representative.brand : brand?.name || "",
           model: model.name,
           representative,
         });
@@ -423,20 +423,29 @@ export default function InventoryEntry() {
     return Array.from(map.values()).sort((a, b) => `${a.brand} ${a.model}`.localeCompare(`${b.brand} ${b.model}`));
   }, [catalogMasters.brands, catalogMasters.models, products]);
 
-  const brandOptions = useMemo(() => uniqueSorted(references.map((reference) => reference.brand)), [references]);
   const [mode, setMode] = useState<EntryMode>("storage");
+  const shoeReferences = useMemo(() => references.filter((reference) => reference.type === "zapato"), [references]);
+  const accessoryReferences = useMemo(() => references.filter((reference) => reference.type === "accesorio"), [references]);
+  const [referenceType, setReferenceType] = useState<ProductType>(shoeReferences.length > 0 ? "zapato" : "accesorio");
+  const brandOptions = useMemo(() => uniqueSorted(shoeReferences.map((reference) => reference.brand)), [shoeReferences]);
   const [brand, setBrand] = useState(brandOptions[0] || "");
-
-  const modelOptions = useMemo(
-    () => uniqueSorted(references.filter((reference) => reference.brand === brand).map((reference) => reference.model)),
-    [brand, references]
+  const shoeModelOptions = useMemo(
+    () => uniqueSorted(shoeReferences.filter((reference) => reference.brand === brand).map((reference) => reference.model)),
+    [brand, shoeReferences]
   );
+  const accessoryTypeOptions = useMemo(
+    () => uniqueSorted(accessoryReferences.map((reference) => reference.model)),
+    [accessoryReferences]
+  );
+  const modelOptions = referenceType === "zapato" ? shoeModelOptions : accessoryTypeOptions;
   const [model, setModel] = useState(modelOptions[0] || "");
 
-  const selectedReference = useMemo(
-    () => references.find((reference) => reference.brand === brand && reference.model === model) || references[0],
-    [brand, model, references]
-  );
+  const selectedReference = useMemo(() => {
+    if (referenceType === "accesorio") {
+      return accessoryReferences.find((reference) => reference.model === model) || accessoryReferences[0] || shoeReferences[0];
+    }
+    return shoeReferences.find((reference) => reference.brand === brand && reference.model === model) || shoeReferences[0] || accessoryReferences[0];
+  }, [accessoryReferences, brand, model, referenceType, shoeReferences]);
 
   const colorOptions = useMemo(
     () =>
@@ -495,12 +504,16 @@ export default function InventoryEntry() {
   const [storeLocationId, setStoreLocationId] = useState(preferredStoreLocationId);
 
   useEffect(() => {
+    if (referenceType !== "zapato") {
+      setBrand("");
+      return;
+    }
     if (!brandOptions.length) {
       setBrand("");
       return;
     }
     if (!brandOptions.includes(brand)) setBrand(brandOptions[0]);
-  }, [brand, brandOptions]);
+  }, [brand, brandOptions, referenceType]);
 
   useEffect(() => {
     if (!modelOptions.length) {
@@ -509,6 +522,16 @@ export default function InventoryEntry() {
     }
     if (!modelOptions.includes(model)) setModel(modelOptions[0]);
   }, [model, modelOptions]);
+
+  useEffect(() => {
+    if (referenceType === "zapato" && shoeReferences.length === 0 && accessoryReferences.length > 0) {
+      setReferenceType("accesorio");
+      return;
+    }
+    if (referenceType === "accesorio" && accessoryReferences.length === 0 && shoeReferences.length > 0) {
+      setReferenceType("zapato");
+    }
+  }, [accessoryReferences.length, referenceType, shoeReferences.length]);
 
   useEffect(() => {
     if (!colorOptions.length) {
@@ -589,7 +612,7 @@ export default function InventoryEntry() {
       return code;
     }
     if (!ACCESSORY_UNIT_CODE_PATTERN.test(code)) {
-      throw new Error(`Codigo invalido para accesorio: ${code}`);
+      throw new Error(`Codigo invalido para accesorio: ${code}. Usa siempre el codigo completo, por ejemplo A00001-D o A00001-I.`);
     }
     return code;
   };
@@ -733,7 +756,15 @@ export default function InventoryEntry() {
   const validationMessage = useMemo(() => {
     if (!user) return "No hay usuario activo.";
     if (entries.length === 0) return "Escanea o pega al menos un codigo.";
-    if (entries.some((entry) => !entry.referenceKey || !entry.brand || !entry.model || !entry.color)) {
+    if (
+      entries.some(
+        (entry) =>
+          !entry.referenceKey ||
+          !entry.model ||
+          !entry.color ||
+          (entry.productType === "zapato" && !entry.brand)
+      )
+    ) {
       return "Hay codigos sin referencia completa.";
     }
     if (entries.some((entry) => entry.productType === "zapato" && !entry.size)) {
@@ -845,6 +876,8 @@ export default function InventoryEntry() {
         <TabsContent value="storage" className="space-y-4">
           <EntryScreen
             mode="storage"
+            referenceType={referenceType}
+            setReferenceType={setReferenceType}
             selectedReference={selectedReference}
             brand={brand}
             setBrand={setBrand}
@@ -882,6 +915,8 @@ export default function InventoryEntry() {
         <TabsContent value="store" className="space-y-4">
           <EntryScreen
             mode="store"
+            referenceType={referenceType}
+            setReferenceType={setReferenceType}
             selectedReference={selectedReference}
             brand={brand}
             setBrand={setBrand}
@@ -922,6 +957,8 @@ export default function InventoryEntry() {
 
 function EntryScreen({
   mode,
+  referenceType,
+  setReferenceType,
   selectedReference,
   brand,
   setBrand,
@@ -955,6 +992,8 @@ function EntryScreen({
   submit,
 }: {
   mode: EntryMode;
+  referenceType: ProductType;
+  setReferenceType: (value: ProductType) => void;
   selectedReference?: InventoryReference;
   brand: string;
   setBrand: (value: string) => void;
@@ -1019,22 +1058,36 @@ function EntryScreen({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <FieldSelect
-              label="Marca"
-              value={brand}
-              onValueChange={setBrand}
-              placeholder="Selecciona marca"
-              options={brandOptions}
+              label="Tipo de referencia"
+              value={referenceType}
+              onValueChange={(value) => setReferenceType(value as ProductType)}
+              placeholder="Selecciona tipo"
+              options={["zapato", "accesorio"]}
+              labels={{ zapato: "Calzado", accesorio: "Accesorio" }}
             />
-            <FieldSelect
-              label="Modelo"
-              value={model}
-              onValueChange={setModel}
-              placeholder="Selecciona modelo"
-              options={modelOptions}
-            />
+            {isShoe ? (
+              <FieldSelect
+                label="Marca"
+                value={brand}
+                onValueChange={setBrand}
+                placeholder="Selecciona marca"
+                options={brandOptions}
+              />
+            ) : (
+              <div className="rounded-xl border border-border/60 bg-secondary/30 px-3 py-3 text-sm font-medium">
+                Tipo de accesorio definido desde Maestros
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FieldSelect
+              label={isShoe ? "Modelo" : "Tipo de accesorio"}
+              value={model}
+              onValueChange={setModel}
+              placeholder={isShoe ? "Selecciona modelo" : "Selecciona tipo de accesorio"}
+              options={modelOptions}
+            />
             <FieldSelect
               label="Color"
               value={color}
@@ -1042,7 +1095,9 @@ function EntryScreen({
               placeholder="Selecciona color"
               options={colorOptions}
             />
+          </div>
 
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>{locationLabel}</Label>
               {locationOptions.length <= 1 ? (
@@ -1064,6 +1119,11 @@ function EntryScreen({
                 </Select>
               )}
             </div>
+            {!isShoe && (
+              <div className="rounded-xl border border-border/60 bg-secondary/30 px-3 py-3 text-sm font-medium">
+                El tipo de accesorio aparece automaticamente porque ya viene desde Maestros.
+              </div>
+            )}
           </div>
 
           <div className="rounded-xl bg-secondary/40 px-3 py-3 text-sm">
@@ -1094,7 +1154,7 @@ function EntryScreen({
             <p className="text-sm leading-relaxed text-muted-foreground">
               {isShoe
                 ? "Todo lo que escanees ahora entra con esa talla. Si lees A00001 o un solo lado, el sistema completa el par."
-                : "Cada codigo se registra como una unidad independiente. Aunque termine en -D o -I, aqui no se toma como par."}
+                : "Cada codigo se registra como una unidad independiente. En accesorio no se acepta el codigo corto: siempre debe venir completo, por ejemplo A00001-D o A00001-I."}
             </p>
           </div>
 
@@ -1136,7 +1196,7 @@ function EntryScreen({
             expectedHint={
               isShoe
                 ? `Estas cargando talla ${activeSize || "-"}. Si escaneas izquierda o derecha, el sistema arma el par.`
-                : "Escanea cada unidad ya etiquetada."
+                : "Escanea cada unidad ya etiquetada con su codigo completo, por ejemplo A00001-D."
             }
           />
 
@@ -1151,7 +1211,7 @@ function EntryScreen({
             <Textarea
               value={bulkCodes}
               onChange={(event) => setBulkCodes(event.target.value)}
-              placeholder={isShoe ? "A00001\nA00002-D\nC00003-I" : "A00001\nA00001-D\nC00003-I"}
+              placeholder={isShoe ? "A00001\nA00002-D\nC00003-I" : "A00001-D\nA00001-I\nC00003-I"}
               className="min-h-[112px]"
             />
             <p className="text-sm text-muted-foreground">Puedes separar por salto de linea, coma o espacio.</p>
@@ -1318,6 +1378,7 @@ function FieldSelect({
   onValueChange,
   placeholder,
   options,
+  labels,
   disabled = false,
 }: {
   label: string;
@@ -1325,6 +1386,7 @@ function FieldSelect({
   onValueChange: (value: string) => void;
   placeholder: string;
   options: string[];
+  labels?: Record<string, string>;
   disabled?: boolean;
 }) {
   return (
@@ -1337,7 +1399,7 @@ function FieldSelect({
         <SelectContent>
           {options.map((option) => (
             <SelectItem key={option} value={option}>
-              {option}
+              {labels?.[option] || option}
             </SelectItem>
           ))}
         </SelectContent>

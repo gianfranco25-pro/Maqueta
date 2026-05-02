@@ -1,8 +1,5 @@
 import { Brand } from "@/components/Brand";
-import { Bell } from "lucide-react";
-import { Link } from "react-router-dom";
 import { useAppStore, useCurrentRole, useCurrentUser } from "@/lib/store";
-import { useCan } from "@/components/Can";
 import { formatUserRoles, getUserRoles, ROLE_LABELS, type Role } from "@/lib/types";
 import {
   Select,
@@ -13,14 +10,12 @@ import {
 } from "@/components/ui/select";
 
 export function TopBar() {
-  const pendingAuth = useAppStore((s) => s.authorizations.filter((a) => a.status === "pendiente").length);
   const currentUserId = useAppStore((s) => s.currentUserId);
   const currentRole = useCurrentRole();
   const users = useAppStore((s) => s.users);
   const setCurrentUser = useAppStore((s) => s.setCurrentUser);
   const setCurrentRole = useAppStore((s) => s.setCurrentRole);
   const user = useCurrentUser();
-  const canReviewAuth = useCan("auth.review");
   const activeUsers = users.filter((item) => item.active);
   const roles = getUserRoles(user);
 
@@ -34,20 +29,6 @@ export function TopBar() {
           <span className="font-medium text-foreground">Operaciones</span>
         </div>
         <div className="flex items-center gap-2">
-          {canReviewAuth && (
-            <Link
-              to="/autorizaciones"
-              className="relative size-9 grid place-items-center rounded-full border border-border bg-card hover:border-accent/50 transition-colors"
-              aria-label="Notificaciones"
-            >
-              <Bell className="size-4" />
-              {pendingAuth > 0 && (
-                <span className="absolute -top-1 -right-1 size-4 rounded-full bg-critical text-critical-foreground text-[10px] font-bold grid place-items-center">
-                  {pendingAuth}
-                </span>
-              )}
-            </Link>
-          )}
           {user && activeUsers.length > 0 && (
             <>
               {roles.length > 1 && currentRole && (

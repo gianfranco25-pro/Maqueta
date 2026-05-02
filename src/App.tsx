@@ -21,10 +21,8 @@ import Sales from "./pages/Sales";
 import NewSale from "./pages/NewSale";
 import PendingPayments from "./pages/PendingPayments";
 import AfterSales from "./pages/AfterSales";
-import Authorizations from "./pages/Authorizations";
 import Reports from "./pages/Reports";
 import Commissions from "./pages/Commissions";
-import Advances from "./pages/Advances";
 import MyIncome from "./pages/MyIncome";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -55,10 +53,8 @@ const App = () => (
             <Route path="/ventas/nueva" element={<NewSale />} />
             <Route path="/ventas/por-cobrar" element={<PendingPayments />} />
             <Route path="/postventa" element={<AfterSales />} />
-            <Route path="/autorizaciones" element={<Authorizations />} />
             <Route path="/reportes" element={<Reports />} />
             <Route path="/comisiones" element={<Commissions />} />
-            <Route path="/adelantos" element={<Advances />} />
             <Route path="/mis-ingresos" element={<MyIncome />} />
             <Route path="/configuracion" element={<Settings />} />
             <Route path="*" element={<NotFound />} />

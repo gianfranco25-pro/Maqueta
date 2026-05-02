@@ -4,7 +4,6 @@ import {
   initialCatalogMasters,
   initialAfterSales,
   initialAttendance,
-  initialAuthorizations,
   initialInventorySeed,
   initialLocations,
   initialMovements,
@@ -24,7 +23,6 @@ import {
   AfterSale,
   AppSettings,
   AttendanceRecord,
-  AuthorizationRequest,
   CatalogMasterKind,
   CatalogMasters,
   Counters,
@@ -32,6 +30,7 @@ import {
   ItemStatus,
   Location,
   Movement,
+  PaymentSplit,
   Product,
   ProductType,
   Role,
@@ -105,7 +104,6 @@ type State = {
   movements: Movement[];
   sales: Sale[];
   afterSales: AfterSale[];
-  authorizations: AuthorizationRequest[];
   advances: AdvanceRecord[];
 
   // Configuración
@@ -167,12 +165,28 @@ type Actions = {
   voidSale: (saleId: string, reason: string, byUserId: string, byUserName: string, byUserRole?: Role) => void;
 
   // After-sales
-  registerExchange: (saleId: string, oldUnitCode: string, newUnitCode: string, diff: number, byUserId: string, byUserName: string, byUserRole: Role | undefined, reason: string) => void;
+  registerExchange: (
+    saleId: string,
+    oldUnitCode: string,
+    newUnitCode: string,
+    newPrice: number,
+    diff: number,
+    payments: PaymentSplit[],
+    totalSurcharge: number,
+    totalDue: number,
+    byUserId: string,
+    byUserName: string,
+    byUserRole: Role | undefined,
+    reason: string
+  ) => void;
+  confirmAfterSalePayment: (
+    afterSaleId: string,
+    cashierId: string,
+    cashierName: string,
+    cashierRole?: Role
+  ) => void;
+  registerRefund: (saleId: string, oldUnitCode: string, byUserId: string, byUserName: string, byUserRole: Role | undefined, reason: string) => void;
   registerWrongPurchase: (saleId: string, reason: string, byUserId: string, byUserName: string, byUserRole?: Role) => void;
-
-  // Authorizations
-  requestAuthorization: (req: Omit<AuthorizationRequest, "id" | "timestamp" | "status">) => AuthorizationRequest;
-  resolveAuthorization: (id: string, approve: boolean, byUserId: string) => void;
 
   // Advances
   addAdvance: (advance: Omit<AdvanceRecord, "id" | "timestamp">) => AdvanceRecord;
@@ -193,7 +207,6 @@ export const useAppStore = create<State & Actions>()(
       movements: initialMovements,
       sales: initialSales,
       afterSales: initialAfterSales,
-      authorizations: initialAuthorizations,
       advances: [],
       settings: initialSettings,
 
@@ -438,7 +451,9 @@ export const useAppStore = create<State & Actions>()(
             };
           }
 
-            if (!/^(?:[A-Z]\d{5}|[A-Z]\d{5}-(D|I))$/.test(code)) throw new Error(`Codigo invalido para accesorio: ${code}`);
+            if (!/^[A-Z]\d{5}-(D|I)$/.test(code)) {
+              throw new Error(`Codigo invalido para accesorio: ${code}. Usa siempre el codigo completo, por ejemplo A00001-D o A00001-I.`);
+            }
             return {
               id: `inv-${code}`,
               productId,
@@ -655,6 +670,8 @@ export const useAppStore = create<State & Actions>()(
       confirmSalePayment: (saleId, payments, totalSurcharge, total, cashierId, cashierName, cashierRole) => {
         const sale = get().sales.find((s) => s.id === saleId);
         if (!sale || sale.status !== "pendiente_cobro") return;
+        const seller = get().users.find((u) => u.id === sale.sellerId);
+        const commissionPerPair = seller?.commissionPerPair ?? 0;
         const confirmedLines = sale.lines.map((line) => {
           const cost = line.cost ?? 0;
           return {
@@ -676,8 +693,8 @@ export const useAppStore = create<State & Actions>()(
           payments,
           totalSurcharge,
           total,
-          commissionPerPair: get().settings.commissionPerPair,
-          commissionTotal: confirmedLines.filter((line) => line.isPair).length * get().settings.commissionPerPair,
+          commissionPerPair,
+          commissionTotal: confirmedLines.filter((line) => line.isPair).length * commissionPerPair,
           utilityTotal: confirmedLines.reduce((acc, line) => acc + line.utility, 0),
           status: "confirmada",
           paidAt: new Date().toISOString(),
@@ -742,11 +759,18 @@ export const useAppStore = create<State & Actions>()(
         set({ sales: updated, inventory: inv, afterSales: [after, ...get().afterSales] });
       },
 
-      registerExchange: (saleId, oldUnitCode, newUnitCode, _diff, byUserId, byUserName, byUserRole, reason) => {
+      registerExchange: (saleId, oldUnitCode, newUnitCode, newPrice, _diff, payments, totalSurcharge, totalDue, byUserId, byUserName, byUserRole, reason) => {
         const sale = get().sales.find((s) => s.id === saleId);
         if (!sale || sale.status !== "confirmada") throw new Error("Selecciona una venta confirmada");
         const oldLine = sale.lines.find((l) => l.unitCode === oldUnitCode);
         if (!oldLine) throw new Error("El producto devuelto no pertenece a la venta");
+        const alreadyHandled = get().afterSales.some(
+          (record) =>
+            record.saleId === saleId &&
+            record.oldUnitCode === oldUnitCode &&
+            (record.type === "cambio" || record.type === "devolucion")
+        );
+        if (alreadyHandled) throw new Error("Ese producto ya fue procesado en postventa");
 
         const isPairOld = oldUnitCode.startsWith("A");
         const isPairNew = newUnitCode.startsWith("A");
@@ -757,12 +781,49 @@ export const useAppStore = create<State & Actions>()(
         if (reservedItems.some((item) => item?.status !== "disponible")) throw new Error("El nuevo producto no está disponible");
 
         const newProduct = get().products.find((p) => p.id === reservedItems[0]?.productId);
-        const diff = Math.max(0, (newProduct ? getProductPrices(newProduct).basePrice : 0) - oldLine.finalPrice);
+        const fallbackNewPrice = newProduct ? getProductPrices(newProduct).basePrice : 0;
+        const effectiveNewPrice = Math.max(0, Number.isFinite(newPrice) ? newPrice : fallbackNewPrice);
+        const floorPrice = fallbackNewPrice;
+        if (byUserRole !== "admin" && effectiveNewPrice < floorPrice) {
+          throw new Error("Solo admin puede cobrar menos de lo que corresponde en el cambio");
+        }
+        const diff = Math.max(0, effectiveNewPrice - oldLine.finalPrice);
+        const normalizedPayments = payments.map((payment) => ({
+          ...payment,
+          amount: Number.isFinite(payment.amount) ? payment.amount : 0,
+          surcharge: Number.isFinite(payment.surcharge) ? payment.surcharge : 0,
+        }));
+        const paidAmount = normalizedPayments.reduce(
+          (acc, payment) => acc + payment.amount + (payment.surcharge || 0),
+          0
+        );
+        const normalizedTotalDue = Math.max(0, totalDue);
+        const pendingAmount = Math.max(0, normalizedTotalDue - paidAmount);
         const after: AfterSale = {
           id: `as-${Date.now()}`,
           type: "cambio",
           saleId,
           saleCode: sale.code,
+          oldUnitCode,
+          newUnitCode,
+          oldProductLabel: oldLine.productLabel,
+          newProductLabel: newProduct ? `${newProduct.brand} - ${newProduct.model}${newProduct.size ? ` T${newProduct.size}` : ""}` : newUnitCode,
+          oldPrice: oldLine.finalPrice,
+          newPrice: effectiveNewPrice,
+          difference: diff,
+          paymentMethod:
+            normalizedPayments.length > 1
+              ? "mixto"
+              : normalizedPayments[0]?.method,
+          paymentSplits: normalizedPayments,
+          totalSurcharge,
+          totalDue: normalizedTotalDue,
+          paidAmount,
+          pendingAmount,
+          paymentStatus: diff > 0 ? "pendiente_caja" : "no_aplica",
+          handledById: byUserId,
+          handledByName: byUserName,
+          handledByRole: byUserRole,
           byUserId,
           byUserName,
           byUserRole,
@@ -771,10 +832,102 @@ export const useAppStore = create<State & Actions>()(
           timestamp: new Date().toISOString(),
         };
         const inv = get().inventory.map((i) => {
-          if (release.includes(i.unitCode)) return { ...i, status: "disponible" as ItemStatus };
+          if (release.includes(i.unitCode)) {
+            return {
+              ...i,
+              status: "disponible" as ItemStatus,
+              locationId: oldLine.sourceLocationId || i.locationId,
+              responsibleUserId: undefined,
+              responsibleName: undefined,
+            };
+          }
           if (reserve.includes(i.unitCode)) return { ...i, status: "vendido" as ItemStatus };
           return i;
         });
+        set({ afterSales: [after, ...get().afterSales], inventory: inv });
+      },
+
+      confirmAfterSalePayment: (afterSaleId, cashierId, cashierName, cashierRole) => {
+        const record = get().afterSales.find((item) => item.id === afterSaleId);
+        if (!record || record.type !== "cambio") return;
+        if (record.paymentStatus !== "pendiente_caja") return;
+        const totalDue = record.totalDue || 0;
+        const paidAmount = record.paidAmount || 0;
+        if (Math.abs(totalDue - paidAmount) > 0.001) {
+          throw new Error("El cobro del cambio no esta conciliado");
+        }
+
+        set({
+          afterSales: get().afterSales.map((item) =>
+            item.id === afterSaleId
+              ? {
+                  ...item,
+                  paymentStatus: "confirmado_caja",
+                  pendingAmount: 0,
+                  cashierId,
+                  cashierName,
+                  cashierRole,
+                  confirmedAt: new Date().toISOString(),
+                }
+              : item
+          ),
+        });
+      },
+
+      registerRefund: (saleId, oldUnitCode, byUserId, byUserName, byUserRole, reason) => {
+        const sale = get().sales.find((s) => s.id === saleId);
+        if (!sale || sale.status !== "confirmada") throw new Error("Selecciona una venta confirmada");
+        const oldLine = sale.lines.find((l) => l.unitCode === oldUnitCode);
+        if (!oldLine) throw new Error("El producto devuelto no pertenece a la venta");
+        const alreadyHandled = get().afterSales.some(
+          (record) =>
+            record.saleId === saleId &&
+            record.oldUnitCode === oldUnitCode &&
+            (record.type === "cambio" || record.type === "devolucion")
+        );
+        if (alreadyHandled) throw new Error("Ese producto ya fue procesado en postventa");
+
+        const isPairOld = oldUnitCode.startsWith("A");
+        const release = isPairOld ? [`${oldUnitCode}-D`, `${oldUnitCode}-I`] : [oldUnitCode];
+        const returnLocationName =
+          oldLine.sourceLocationName ||
+          get().locations.find((location) => location.id === oldLine.sourceLocationId)?.name ||
+          "Sin ubicacion";
+
+        const after: AfterSale = {
+          id: `as-${Date.now()}`,
+          type: "devolucion",
+          saleId,
+          saleCode: sale.code,
+          oldUnitCode,
+          oldProductLabel: oldLine.productLabel,
+          oldPrice: oldLine.finalPrice,
+          difference: oldLine.finalPrice,
+          refundAmount: oldLine.finalPrice,
+          paymentStatus: "no_aplica",
+          returnedToLocationName: returnLocationName,
+          handledById: byUserId,
+          handledByName: byUserName,
+          handledByRole: byUserRole,
+          byUserId,
+          byUserName,
+          byUserRole,
+          reason,
+          timestamp: new Date().toISOString(),
+        };
+
+        const inv = get().inventory.map((item) =>
+          release.includes(item.unitCode)
+            ? {
+                ...item,
+                status: "disponible" as ItemStatus,
+                locationId: oldLine.sourceLocationId || item.locationId,
+                responsibleUserId: undefined,
+                responsibleName: undefined,
+              }
+            : item
+        );
+
         set({ afterSales: [after, ...get().afterSales], inventory: inv });
       },
 
@@ -795,25 +948,6 @@ export const useAppStore = create<State & Actions>()(
         set({ afterSales: [after, ...get().afterSales] });
       },
 
-      requestAuthorization: (req) => {
-        const r: AuthorizationRequest = {
-          ...req,
-          id: `auth-${Date.now()}`,
-          status: "pendiente",
-          timestamp: new Date().toISOString(),
-        };
-        set({ authorizations: [r, ...get().authorizations] });
-        return r;
-      },
-      resolveAuthorization: (id, approve, byUserId) =>
-        set({
-          authorizations: get().authorizations.map((a) =>
-            a.id === id
-              ? { ...a, status: approve ? "aprobada" : "rechazada", resolvedBy: byUserId, resolvedAt: new Date().toISOString() }
-              : a
-          ),
-        }),
-
       addAdvance: (advance) => {
         const record: AdvanceRecord = {
           ...advance,
@@ -825,7 +959,7 @@ export const useAppStore = create<State & Actions>()(
       },
     }),
     {
-      name: "kabutt-store-v5",
+      name: "kabutt-store-v8",
     }
   )
 );

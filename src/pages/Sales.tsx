@@ -20,6 +20,9 @@ import { operationalRoleFor } from "@/lib/types";
 
 type Filter = "todas" | "pendiente_cobro" | "confirmada" | "anulada";
 
+const lineCodesLabel = (line?: { sourceUnitCodes?: string[]; unitCode: string }) =>
+  line?.sourceUnitCodes?.length ? line.sourceUnitCodes.join(" / ") : line?.unitCode || "";
+
 export default function Sales() {
   const allSales = useAppStore((s) => s.sales);
   const locations = useAppStore((s) => s.locations);
@@ -51,7 +54,11 @@ export default function Sales() {
   const filtered = sales.filter((s) => {
     if (filter !== "todas" && s.status !== filter) return false;
     if (!search) return true;
-    return (s.code + s.sellerName + (s.customerPhone || "")).toLowerCase().includes(search.toLowerCase());
+    return (
+      s.sellerName +
+      (s.customerPhone || "") +
+      s.lines.map((line) => lineCodesLabel(line)).join(" ")
+    ).toLowerCase().includes(search.toLowerCase());
   });
 
   const sale = open ? sales.find((s) => s.id === open) : null;
@@ -86,7 +93,7 @@ export default function Sales() {
               <li key={s.id} className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-secondary/40 cursor-pointer" onClick={() => setOpen(s.id)}>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="font-mono text-xs text-muted-foreground">{s.code}</p>
+                    <p className="font-mono text-xs text-muted-foreground">{lineCodesLabel(s.lines[0])}</p>
                     <StatusBadge kind={s.status} />
                   </div>
                   <p className="font-medium truncate">{s.sellerName}</p>
@@ -108,7 +115,7 @@ export default function Sales() {
 
       <Dialog open={!!open} onOpenChange={() => { setOpen(null); setVoidReason(""); }}>
         <DialogContent>
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><Receipt className="size-5" />{sale?.code}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Receipt className="size-5" />Detalle de venta</DialogTitle></DialogHeader>
           {sale && (
             <div className="space-y-3 text-sm">
               <p><strong>Colaborador:</strong> {sale.sellerName}</p>

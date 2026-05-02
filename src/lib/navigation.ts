@@ -10,12 +10,10 @@ import {
   ClipboardCheck,
   Truck,
   AlertTriangle,
-  ShieldCheck,
   Wallet,
   Receipt,
   ArrowDownToLine,
   MapPin,
-  HandCoins,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -26,7 +24,7 @@ export type NavItem = {
   to: string;
   label: string;
   icon: LucideIcon;
-  short?: string; // texto corto bottom nav
+  short?: string;
 };
 
 export const allNav: Record<string, NavItem> = {
@@ -34,7 +32,7 @@ export const allNav: Record<string, NavItem> = {
   users: { to: "/usuarios", label: "Usuarios", icon: Users },
   locations: { to: "/ubicaciones", label: "Ubicaciones", icon: MapPin },
   attendance: { to: "/asistencia", label: "Asistencia", icon: ClipboardCheck, short: "Asistencia" },
-  catalog: { to: "/catalogo", label: "Catálogo", icon: Tag, short: "Catálogo" },
+  catalog: { to: "/catalogo", label: "Catalogo", icon: Tag, short: "Catalogo" },
   inventory: { to: "/inventario", label: "Inventario", icon: Package, short: "Stock" },
   scan: { to: "/escanear", label: "Escaneo general", icon: ScanLine, short: "Escanear" },
   sales: { to: "/ventas", label: "Ventas", icon: ShoppingCart, short: "Ventas" },
@@ -42,14 +40,12 @@ export const allNav: Record<string, NavItem> = {
   pendingPayments: { to: "/ventas/por-cobrar", label: "Por cobrar", icon: Receipt, short: "Cobrar" },
   aftersales: { to: "/postventa", label: "Postventa", icon: RotateCcw, short: "Cambios" },
   reports: { to: "/reportes", label: "Reportes", icon: BarChart3 },
-  commissions: { to: "/comisiones", label: "Comisiones", icon: Wallet, short: "Comisión" },
-  advances: { to: "/adelantos", label: "Adelantos", icon: HandCoins, short: "Adelantos" },
+  commissions: { to: "/comisiones", label: "Comisiones", icon: Wallet, short: "Comision" },
   myIncome: { to: "/mis-ingresos", label: "Mis ingresos", icon: Wallet, short: "Mis $" },
   transfers: { to: "/inventario/traslados", label: "Traslados", icon: Truck },
   deliveries: { to: "/inventario/entregas", label: "Entregas", icon: Package },
   inventoryEntry: { to: "/inventario/ingreso", label: "Ingreso", icon: ArrowDownToLine },
   faults: { to: "/inventario/fallas", label: "Fallas", icon: AlertTriangle },
-  authorizations: { to: "/autorizaciones", label: "Autorizaciones", icon: ShieldCheck },
   settings: { to: "/configuracion", label: "Reglas", icon: Settings },
   saleHistory: { to: "/ventas", label: "Historial venta", icon: Receipt },
 };
@@ -68,9 +64,7 @@ export const sidebarByRole: Record<Role, NavItem[]> = {
     allNav.sales,
     allNav.pendingPayments,
     allNav.aftersales,
-    allNav.authorizations,
     allNav.commissions,
-    allNav.advances,
     allNav.reports,
     allNav.settings,
   ],
@@ -84,10 +78,8 @@ export const sidebarByRole: Record<Role, NavItem[]> = {
   ],
   cajero: [
     allNav.dashboard,
-    allNav.sales,
     allNav.pendingPayments,
     allNav.aftersales,
-    allNav.advances,
     allNav.reports,
   ],
   almacen: [
@@ -117,7 +109,6 @@ export const navigationForUser = (user?: Pick<User, "role" | "roles"> | null, ac
   uniqueNav(rolesForNavigation(user, activeRole).flatMap((role) => sidebarByRole[role] || []))
     .filter((item) => hasRouteAccess(user, item, activeRole));
 
-// Acción principal para FAB / bottom nav central por rol
 export const primaryActionByRole: Record<Role, NavItem> = {
   admin: allNav.scan,
   vendedor: allNav.newSale,
@@ -133,11 +124,10 @@ export const primaryActionForUser = (user?: Pick<User, "role" | "roles"> | null,
   return allNav.pendingPayments;
 };
 
-// Bottom nav: 4 items + 1 acción central destacada
 export const bottomNavByRole: Record<Role, NavItem[]> = {
   admin: [allNav.dashboard, allNav.sales, allNav.inventory, allNav.reports],
   vendedor: [allNav.dashboard, allNav.newSale, allNav.inventory, allNav.myIncome],
-  cajero: [allNav.dashboard, allNav.pendingPayments, allNav.sales, allNav.advances],
+  cajero: [allNav.dashboard, allNav.pendingPayments, allNav.aftersales, allNav.reports],
   almacen: [allNav.dashboard, allNav.inventory, allNav.transfers, allNav.faults],
 };
 

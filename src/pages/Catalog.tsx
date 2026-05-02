@@ -88,6 +88,16 @@ const mergeNames = (...lists: string[][]) => uniqueSorted(lists.flat());
 const activeNames = (items: { name: string; active: boolean }[]) =>
   uniqueSorted(items.filter((item) => item.active).map((item) => item.name));
 
+const accessoryTypeOptionsFrom = (masters: CatalogMasters, products: Product[]) =>
+  mergeNames(
+    uniqueSorted(
+      masters.models
+        .filter((model) => resolveMasterModelType(model, masters, products) === "accesorio" && model.active)
+        .map((model) => model.name)
+    ),
+    uniqueSorted(products.filter((product) => product.type === "accesorio").map((product) => product.model))
+  );
+
 type CatalogReference = {
   key: string;
   type: ProductType;
@@ -201,23 +211,30 @@ export default function Catalog() {
     sizes: mergeNames(activeNames(catalogMasters.sizes), productMasters.sizes),
   }), [catalogMasters.brands, catalogMasters.colors, catalogMasters.sizes, productMasters]);
 
-  const modelsForBrand = (brandName: string) => {
+  const modelsForBrand = (brandName: string, type: ProductType) => {
+    if (type === "accesorio") {
+      return accessoryTypeOptionsFrom(catalogMasters, products);
+    }
+
     const selectedBrand = catalogMasters.brands.find((brand) => brand.name === brandName);
     const structuredModels = catalogMasters.models
       .filter((model) => {
         if (!model.active) return false;
         const modelType = resolveMasterModelType(model, catalogMasters, products);
-        if (modelType === "accesorio") return true;
+        if (modelType === "accesorio") return false;
         return Boolean(selectedBrand && model.brandId === selectedBrand.id);
       })
       .map((model) => model.name);
     const legacyModels = products
-      .filter((product) => !brandName || product.brand === brandName)
+      .filter((product) => product.type === "zapato" && (!brandName || product.brand === brandName))
       .map((product) => product.model);
     return mergeNames(structuredModels, uniqueSorted(legacyModels));
   };
 
-  const modelOptions = useMemo(() => modelsForBrand(form.brand), [catalogMasters.brands, catalogMasters.models, form.brand, products]);
+  const modelOptions = useMemo(
+    () => modelsForBrand(form.brand, form.type),
+    [catalogMasters, form.brand, form.type, products]
+  );
 
   const modelMasterFor = (brandName: string, modelName: string) => {
     const selectedBrand = catalogMasters.brands.find((brand) => brand.name === brandName);
@@ -267,7 +284,7 @@ export default function Catalog() {
 
   const openNew = () => {
     const brand = masterOptions.brands[0] || "";
-    const model = modelsForBrand(brand)[0] || "";
+    const model = modelsForBrand(brand, "zapato")[0] || "";
     const modelMaster = modelMasterFor(brand, model);
     const template = pricingTemplateFor(brand, model);
     setEditingId(null);
@@ -296,9 +313,14 @@ export default function Catalog() {
   };
 
   const validateForm = () => {
-    if (!form.brand.trim() || !form.model.trim()) return "Marca y modelo son obligatorios";
-    if (!masterOptions.brands.includes(form.brand)) return "La marca debe estar registrada en maestros";
-    if (!modelOptions.includes(form.model)) return "El modelo debe estar registrado para la marca seleccionada";
+    if (form.type === "zapato") {
+      if (!form.brand.trim() || !form.model.trim()) return "Marca y modelo son obligatorios";
+      if (!masterOptions.brands.includes(form.brand)) return "La marca debe estar registrada en maestros";
+      if (!modelOptions.includes(form.model)) return "El modelo debe estar registrado para la marca seleccionada";
+    } else {
+      if (!form.model.trim()) return "El tipo de accesorio es obligatorio";
+      if (!modelOptions.includes(form.model)) return "El tipo de accesorio debe estar registrado en maestros";
+    }
     if (!isValidMoney(form.cost)) return "Costo de compra no puede ser negativo";
     if (!isPositiveNumber(form.basePrice)) return "Precio de venta debe ser mayor a 0";
     if (form.cost > 0 && form.basePrice <= form.cost) return "Precio de venta debe ser mayor al costo de compra";
@@ -443,8 +465,17 @@ export default function Catalog() {
                           {p ? p.active ? "Activo" : "Inactivo" : "Sin configurar"}
                         </span>
                       </div>
-                      <p className="font-display font-bold text-lg truncate mt-2">{reference.brand}</p>
-                      <p className="text-sm font-medium truncate">{reference.model}</p>
+                      {reference.type === "zapato" ? (
+                        <>
+                          <p className="font-display font-bold text-lg truncate mt-2">{reference.brand}</p>
+                          <p className="text-sm font-medium truncate">{reference.model}</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-display font-bold text-lg truncate mt-2">{reference.model}</p>
+                          <p className="text-sm text-muted-foreground">Tipo de accesorio</p>
+                        </>
+                      )}
                     </div>
                     {canEdit && (
                       <Button size="icon" variant="ghost" onClick={() => openEdit(reference)} aria-label="Editar referencia">
@@ -509,32 +540,59 @@ export default function Catalog() {
                   </div>
                   <p className="mt-1 text-[11px] text-muted-foreground">Se define en Maestros / Modelos.</p>
                 </div>
-                <div>
-                  <Label>Marca</Label>
-                  <Select value={form.brand} onValueChange={(value) => {
-                    const model = modelsForBrand(value)[0] || "";
-                    const modelMaster = modelMasterFor(value, model);
-                    setForm({ ...form, brand: value, model, type: modelMaster?.type || form.type, ...pricingTemplateFor(value, model) });
-                  }} disabled={Boolean(editingId)}>
-                    <SelectTrigger><SelectValue placeholder="Selecciona marca" /></SelectTrigger>
-                    <SelectContent>
-                      {masterOptions.brands.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Modelo</Label>
-                  <Select value={form.model} onValueChange={(value) => {
-                    const modelMaster = modelMasterFor(form.brand, value);
-                    setForm({ ...form, model: value, type: modelMaster?.type || form.type, ...pricingTemplateFor(form.brand, value) });
-                  }} disabled={Boolean(editingId) || !form.brand || modelOptions.length === 0}>
-                    <SelectTrigger><SelectValue placeholder={!form.brand ? "Primero marca" : modelOptions.length === 0 ? "Marca sin modelos" : "Selecciona modelo"} /></SelectTrigger>
-                    <SelectContent>
-                      {modelOptions.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
-                      {modelOptions.length === 0 && <div className="px-3 py-2 text-sm text-muted-foreground">Crea un modelo para esta marca en Maestros</div>}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {form.type === "zapato" ? (
+                  <>
+                    <div>
+                      <Label>Marca</Label>
+                      <Select value={form.brand} onValueChange={(value) => {
+                        const model = modelsForBrand(value, "zapato")[0] || "";
+                        const modelMaster = modelMasterFor(value, model);
+                        setForm({ ...form, brand: value, model, type: modelMaster?.type || form.type, ...pricingTemplateFor(value, model) });
+                      }} disabled={Boolean(editingId)}>
+                        <SelectTrigger><SelectValue placeholder="Selecciona marca" /></SelectTrigger>
+                        <SelectContent>
+                          {masterOptions.brands.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Modelo</Label>
+                      <Select value={form.model} onValueChange={(value) => {
+                        const modelMaster = modelMasterFor(form.brand, value);
+                        setForm({ ...form, model: value, type: modelMaster?.type || form.type, ...pricingTemplateFor(form.brand, value) });
+                      }} disabled={Boolean(editingId) || !form.brand || modelOptions.length === 0}>
+                        <SelectTrigger><SelectValue placeholder={!form.brand ? "Primero marca" : modelOptions.length === 0 ? "Marca sin modelos" : "Selecciona modelo"} /></SelectTrigger>
+                        <SelectContent>
+                          {modelOptions.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
+                          {modelOptions.length === 0 && <div className="px-3 py-2 text-sm text-muted-foreground">Crea un modelo de calzado en Maestros</div>}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <Label>Tipo de accesorio</Label>
+                      <Select
+                        value={form.model}
+                        onValueChange={(value) => {
+                          const modelMaster = modelMasterFor("", value);
+                          setForm({ ...form, brand: "", model: value, type: modelMaster?.type || "accesorio", ...pricingTemplateFor("", value) });
+                        }}
+                        disabled={Boolean(editingId) || modelOptions.length === 0}
+                      >
+                        <SelectTrigger><SelectValue placeholder={modelOptions.length === 0 ? "Sin tipos de accesorio" : "Selecciona tipo"} /></SelectTrigger>
+                        <SelectContent>
+                          {modelOptions.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
+                          {modelOptions.length === 0 && <div className="px-3 py-2 text-sm text-muted-foreground">Crea un tipo de accesorio en Maestros</div>}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="rounded-xl border border-border/60 bg-secondary/30 px-3 py-2.5 text-sm font-medium">
+                      Se toma automatico desde Maestros
+                    </div>
+                  </>
+                )}
               </div>
             </div>
             <div className="rounded-xl border border-border p-3 space-y-3">

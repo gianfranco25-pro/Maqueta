@@ -11,7 +11,6 @@ import {
   RotateCcw,
   Search,
   Settings,
-  ShieldCheck,
   ShoppingCart,
   Tag,
   TrendingUp,
@@ -48,6 +47,9 @@ type DashboardTraceItem = {
   returnLocationId?: string;
   returnLocationName?: string;
 };
+
+const lineCodesLabel = (line?: { sourceUnitCodes?: string[]; unitCode: string }) =>
+  line?.sourceUnitCodes?.length ? line.sourceUnitCodes.join(" / ") : line?.unitCode || "";
 
 const mainCodeForItem = (item?: InventoryItem) => item?.pairCode || item?.unitCode || "";
 
@@ -126,13 +128,10 @@ export default function Dashboard() {
 function AdminDashboard() {
   const metrics = useDashboardMetrics();
   const sales = useAppStore((state) => state.sales).slice(0, 5);
-  const auths = useAppStore((state) => state.authorizations)
-    .filter((item) => item.status === "pendiente")
-    .slice(0, 4);
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <StatCard
           label="Ventas hoy"
           value={fmtMoney(metrics.todayRevenue)}
@@ -152,19 +151,11 @@ function AdminDashboard() {
           icon={Package}
           hint={`${metrics.availableAcc} accesorios`}
         />
-        <StatCard
-          label="Autorizaciones"
-          value={metrics.pendingAuth}
-          icon={ShieldCheck}
-          tone={metrics.pendingAuth ? "critical" : "default"}
-          hint="pendientes"
-        />
       </div>
 
       <section>
         <h2 className="font-display font-bold text-lg mb-3">Modulos</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <QuickTile to="/autorizaciones" icon={ShieldCheck} label="Autorizaciones" emphasis />
           <QuickTile to="/ventas/por-cobrar" icon={Receipt} label="Por cobrar" />
           <QuickTile to="/ventas" icon={ShoppingCart} label="Ventas" />
           <QuickTile to="/inventario" icon={Package} label="Inventario" />
@@ -174,7 +165,6 @@ function AdminDashboard() {
           <QuickTile to="/usuarios" icon={Users} label="Usuarios" />
           <QuickTile to="/ubicaciones" icon={MapPin} label="Ubicaciones" />
           <QuickTile to="/catalogo" icon={Tag} label="Catalogo" />
-          <QuickTile to="/adelantos" icon={Wallet} label="Adelantos" />
           <QuickTile to="/comisiones" icon={Wallet} label="Liquidaciones" />
           <QuickTile to="/reportes" icon={BarChart3} label="Reportes" />
           <QuickTile to="/configuracion" icon={Settings} label="Reglas" />
@@ -188,28 +178,13 @@ function AdminDashboard() {
           actionTo="/ventas"
           items={sales.map((sale) => ({
             key: sale.id,
-            code: sale.code,
+            code: lineCodesLabel(sale.lines[0]),
             productLabel: sale.sellerName,
-            note: fmtDateTime(sale.timestamp),
+            note: `${sale.lines.length} item${sale.lines.length === 1 ? "" : "s"} - ${fmtDateTime(sale.timestamp)}`,
             badgeKind: sale.status,
             badgeLabel: fmtMoney(sale.total),
           }))}
           emptyText="Sin ventas registradas todavia"
-        />
-
-        <TracePanel
-          title="Autorizaciones pendientes"
-          actionLabel="Gestionar"
-          actionTo="/autorizaciones"
-          items={auths.map((auth) => ({
-            key: auth.id,
-            code: "Pendiente",
-            productLabel: auth.detail,
-            note: `${auth.requestedByName} - ${fmtDateTime(auth.timestamp)}`,
-            badgeKind: "pendiente",
-            badgeLabel: "Revisar",
-          }))}
-          emptyText="Todo en orden"
         />
       </div>
     </div>
@@ -292,9 +267,9 @@ function SellerDashboard() {
       .flatMap((sale) =>
         sale.lines.map((line) => ({
           key: `${sale.id}-${line.unitCode}`,
-          code: line.unitCode,
+          code: lineCodesLabel(line),
           productLabel: line.productLabel,
-          note: `${sale.code} - ${line.sourceLocationName || "origen registrado"}`,
+          note: `${line.sourceLocationName || "origen registrado"} - ${fmtDateTime(sale.timestamp)}`,
           badgeKind: "success" as const,
           badgeLabel: "Vendido",
         }))
@@ -379,9 +354,7 @@ function CashierDashboard() {
         <h2 className="font-display font-bold text-lg mb-3">Mis modulos</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <QuickTile to="/ventas/por-cobrar" icon={Receipt} label="Por cobrar" emphasis />
-          <QuickTile to="/ventas" icon={ShoppingCart} label="Ventas" />
           <QuickTile to="/postventa" icon={RotateCcw} label="Postventa" />
-          <QuickTile to="/adelantos" icon={Wallet} label="Adelantos" />
           <QuickTile to="/reportes" icon={BarChart3} label="Reportes" />
           <QuickTile to="/asistencia" icon={ClipboardCheck} label="Asistencia" />
         </div>

@@ -4,14 +4,16 @@ import { useMyCommission } from "@/lib/metrics";
 import { fmtMoney, fmtDateTime, fmtDate } from "@/lib/format";
 import { Wallet, TrendingUp } from "lucide-react";
 import { useAppStore, useCurrentUser } from "@/lib/store";
+import { PAYMENT_WEEKDAY_LABELS } from "@/lib/types";
 
 export default function MyIncome() {
   const c = useMyCommission();
   const user = useCurrentUser();
-  const settings = useAppStore((s) => s.settings);
   const sales = useAppStore((s) => s.sales).filter((sale) => sale.sellerId === user?.id && sale.status === "confirmada");
   const advances = useAppStore((s) => s.advances).filter((advance) => advance.userId === user?.id);
   const advanceTotal = advances.reduce((acc, advance) => acc + advance.amount, 0);
+  const commissionPerPair = user?.commissionPerPair ?? 0;
+  const paymentDay = user?.paymentWeekday ? PAYMENT_WEEKDAY_LABELS[user.paymentWeekday] : "No definido";
 
   return (
     <>
@@ -24,8 +26,9 @@ export default function MyIncome() {
       </div>
 
       <div className="rounded-2xl bg-card border p-4 mb-6">
-        <p className="text-xs uppercase font-semibold text-muted-foreground">Politica de pago</p>
-        <p className="text-sm mt-1">{settings.paymentPolicy}</p>
+        <p className="text-xs uppercase font-semibold text-muted-foreground">Pago semanal</p>
+        <p className="text-sm mt-1">Comision por par: {fmtMoney(commissionPerPair)}</p>
+        <p className="text-sm text-muted-foreground mt-1">Dia de pago: {paymentDay}</p>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
@@ -38,7 +41,7 @@ export default function MyIncome() {
               {sales.map((sale) => {
                 const soldCodes = sale.lines.map((line) => line.unitCode).join(", ");
                 const salePairs = sale.lines.filter((line) => line.isPair).length;
-                const commission = sale.commissionTotal ?? salePairs * settings.commissionPerPair;
+                const commission = sale.commissionTotal ?? salePairs * commissionPerPair;
 
                 return (
                   <li key={sale.id} className="px-4 py-3 flex justify-between gap-4">

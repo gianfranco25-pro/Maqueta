@@ -41,6 +41,8 @@ export default function InventoryDeliveries() {
     () => users.filter((entry) => entry.active).sort((a, b) => a.name.localeCompare(b.name)),
     [users]
   );
+  const locationLabelById = (locationId?: string) =>
+    locations.find((location) => location.id === locationId)?.name || "Sin ubicacion";
 
   const [codes, setCodes] = useState<string[]>([]);
   const [receiverId, setReceiverId] = useState("");
@@ -69,7 +71,7 @@ export default function InventoryDeliveries() {
   );
 
   useEffect(() => {
-    const prefill = (loc.state as any)?.prefillUnit;
+    const prefill = (loc.state as { prefillUnit?: string } | null)?.prefillUnit;
     if (prefill) addCode(prefill);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -130,10 +132,13 @@ export default function InventoryDeliveries() {
 
   return (
     <>
-      <PageHeader title="Entregas desde almacen" subtitle="Entrega pares completos o unidades con responsable y destino" />
+      <PageHeader
+        title="Entregas desde almacen"
+        subtitle="Entrega pares completos o unidades con responsable y destino"
+      />
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        <div className="rounded-2xl bg-card border p-5 space-y-4">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl border bg-card p-5 space-y-4">
           <QRScanner onResult={addCode} allowPairCodes />
 
           <div className="rounded-xl bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
@@ -141,7 +146,9 @@ export default function InventoryDeliveries() {
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs uppercase font-semibold tracking-wider text-muted-foreground">Items a entregar</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Items a entregar
+            </p>
             <InventoryCodeSummaryList
               items={selectedSummaries}
               emptyText="Escanea un par o una unidad para preparar la entrega"
@@ -154,20 +161,25 @@ export default function InventoryDeliveries() {
                 });
               }}
               pairModes={pairModes}
-              onChangePairMode={(key, mode) => setPairModes((current) => ({ ...current, [key]: mode }))}
+              onChangePairMode={(key, mode) =>
+                setPairModes((current) => ({ ...current, [key]: mode }))
+              }
             />
           </div>
 
           <div>
             <Label>Quien recibe</Label>
             <Select value={receiverId} onValueChange={setReceiverId}>
-              <SelectTrigger><SelectValue placeholder="Selecciona usuario u Otros" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona usuario u Otros" />
+              </SelectTrigger>
               <SelectContent>
                 {activeUsers.map((entry) => {
                   const location = locations.find((item) => item.id === entry.locationId);
                   return (
                     <SelectItem key={entry.id} value={entry.id}>
-                      {entry.name} ({ROLE_LABELS[entry.role]}){location ? ` - ${location.name}` : ""}
+                      {entry.name} ({ROLE_LABELS[entry.role]})
+                      {location ? ` - ${location.name}` : ""}
                     </SelectItem>
                   );
                 })}
@@ -196,7 +208,9 @@ export default function InventoryDeliveries() {
             <div>
               <Label>Ubicacion destino</Label>
               <Select value={toLocationId} onValueChange={setToLocationId}>
-                <SelectTrigger><SelectValue placeholder="Selecciona ubicacion" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona ubicacion" />
+                </SelectTrigger>
                 <SelectContent>
                   {activeLocations.map((location) => (
                     <SelectItem key={location.id} value={location.id}>
@@ -216,7 +230,7 @@ export default function InventoryDeliveries() {
           </Button>
         </div>
 
-        <div className="rounded-2xl bg-card border overflow-hidden">
+        <div className="rounded-2xl border bg-card overflow-hidden">
           <div className="px-4 py-3 border-b font-display font-bold">Historial de entregas</div>
           {movementRows.length === 0 ? (
             <p className="p-6 text-center text-sm text-muted-foreground">Sin entregas</p>
@@ -224,14 +238,38 @@ export default function InventoryDeliveries() {
             <ul className="divide-y max-h-[520px] overflow-y-auto">
               {movementRows.map(({ movement, summaries }) => (
                 <li key={movement.id} className="px-4 py-3 space-y-3">
-                  <p className="text-xs text-muted-foreground">
-                    {movement.byUserName}
-                    {movement.byUserRole ? ` (${ROLE_LABELS[movement.byUserRole]})` : ""}
-                    {` -> ${movement.receivedBy}`}
-                    {movement.toLocationId ? ` - ${locations.find((location) => location.id === movement.toLocationId)?.name || "Destino"}` : ""}
-                    {" · "}
-                    {fmtDateTime(movement.timestamp)}
-                  </p>
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                      <span className="font-semibold">Entrega</span>
+                      <span className="text-muted-foreground">{fmtDateTime(movement.timestamp)}</span>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">
+                      Registrado por {movement.byUserName}
+                      {movement.byUserRole ? ` (${ROLE_LABELS[movement.byUserRole]})` : ""}
+                    </p>
+
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="rounded-lg bg-secondary/40 px-3 py-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Se entrego a
+                        </p>
+                        <p className="mt-1 text-sm font-medium">
+                          {movement.receivedBy || "Sin receptor"}
+                        </p>
+                      </div>
+
+                      <div className="rounded-lg bg-secondary/40 px-3 py-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Quedo ubicado en
+                        </p>
+                        <p className="mt-1 text-sm font-medium">
+                          {locationLabelById(movement.toLocationId)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   <InventoryCodeSummaryList items={summaries} />
                 </li>
               ))}

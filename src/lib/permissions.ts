@@ -2,25 +2,20 @@ import { getUserRoles, type Role, type User } from "./types";
 
 /**
  * Matriz central de permisos por rol.
- * Regla: lo que no esté permitido se OCULTA en la UI (no se muestra deshabilitado).
- * El admin tiene acceso total a todo.
+ * Regla: lo que no este permitido se OCULTA en la UI.
  */
 
 export type Capability =
-  // Asistencia
   | "attendance.mark"
-  // Ventas
   | "sales.view.own"
   | "sales.view.all"
   | "sales.create"
-  | "sales.cancel" // anular venta confirmada
-  | "sales.collect" // confirmar cobro
-  | "sales.cancelDraft" // anular venta pendiente de cobro
-  | "sales.price.edit" // modificar precio final / descuentos
-  // Postventa
+  | "sales.cancel"
+  | "sales.collect"
+  | "sales.cancelDraft"
+  | "sales.price.edit"
   | "aftersales.exchange"
-  | "aftersales.wrong" // compra por error
-  // Inventario
+  | "aftersales.wrong"
   | "inventory.view"
   | "inventory.entry"
   | "inventory.transfer"
@@ -28,23 +23,17 @@ export type Capability =
   | "inventory.fault"
   | "inventory.qr.generate"
   | "inventory.scan"
-  // Catálogo y precios
   | "catalog.view"
   | "catalog.edit"
   | "catalog.prices.edit"
-  // Usuarios
   | "users.manage"
   | "locations.manage"
-  // Reportes
   | "reports.global"
   | "profit.view"
   | "income.own"
   | "commissions.all"
   | "advances.view.all"
   | "advances.manage"
-  // Autorizaciones
-  | "auth.review" // aprobar / rechazar
-  // Configuración del sistema
   | "settings.system";
 
 const ALL: Capability[] = [
@@ -76,7 +65,6 @@ const ALL: Capability[] = [
   "commissions.all",
   "advances.view.all",
   "advances.manage",
-  "auth.review",
   "settings.system",
 ];
 
@@ -122,7 +110,6 @@ export function canAny(userOrRole: Role | Pick<User, "role" | "roles"> | undefin
   return caps.some((cap) => can(userOrRole, cap));
 }
 
-/** Mapa ruta → capability mínima requerida. Si el usuario no la tiene, se redirige. */
 export const ROUTE_CAPABILITIES: Record<string, Capability | Capability[]> = {
   "/usuarios": "users.manage",
   "/ubicaciones": "locations.manage",
@@ -134,14 +121,12 @@ export const ROUTE_CAPABILITIES: Record<string, Capability | Capability[]> = {
   "/inventario/entregas": "inventory.delivery",
   "/inventario/fallas": "inventory.fault",
   "/escanear": "inventory.scan",
-  "/ventas": ["sales.view.own", "sales.view.all"], // colaborador ve solo las suyas (filtrado en página)
+  "/ventas": ["sales.view.own", "sales.view.all"],
   "/ventas/nueva": "sales.create",
   "/ventas/por-cobrar": "sales.collect",
   "/postventa": "aftersales.exchange",
-  "/autorizaciones": "auth.review",
   "/reportes": "reports.global",
   "/comisiones": "commissions.all",
-  "/adelantos": ["advances.view.all", "advances.manage"],
   "/mis-ingresos": "income.own",
   "/configuracion": "settings.system",
 };

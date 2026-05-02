@@ -93,7 +93,7 @@ export function QRScanner({
     if (!valid) {
       toast.error(`Codigo invalido: ${code}`, {
         description: allowSaleCodes
-          ? "Formato esperado: V-0001, A00001, A00001-D o C00001-I"
+          ? "Formato esperado: A00001, A00001-D o C00001-I"
           : allowPairCodes
             ? "Formato esperado: A00001, A00001-D o C00001-I"
             : "Formato esperado: A00001, A00001-D o C00001-I",
@@ -183,7 +183,7 @@ export function QRScanner({
             onChange={(event) => setManual(event.target.value.toUpperCase())}
             placeholder={
               allowSaleCodes
-                ? "Ej: V-0001, A00001-D o C00001-I"
+                ? "Ej: A00001-D o C00001-I"
                 : allowPairCodes
                   ? "Ej: A00001, A00001-D o C00001-I"
                   : "Ej: A00001, A00001-D o C00001-I"
@@ -195,8 +195,7 @@ export function QRScanner({
             Confirmar codigo
           </Button>
           <p className="text-center text-sm text-muted-foreground">
-            Formatos validos: {allowSaleCodes && <><span className="font-mono">V-0001</span>, </>}
-            {allowPairCodes && <><span className="font-mono">A00001</span>, </>}
+            Formatos validos: {allowPairCodes && <><span className="font-mono">A00001</span>, </>}
             <span className="font-mono">A00001-D</span>, <span className="font-mono">A00001-I</span>,{" "}
             <span className="font-mono">C00001</span>
           </p>

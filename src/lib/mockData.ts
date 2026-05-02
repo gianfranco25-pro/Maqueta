@@ -1,7 +1,6 @@
 import type {
   AppSettings,
   AttendanceRecord,
-  AuthorizationRequest,
   CatalogMasters,
   Counters,
   InventoryItem,
@@ -24,9 +23,9 @@ export const initialLocations: Location[] = [
 
 export const initialUsers: User[] = [
   { id: "u-admin", name: "Carla Admin", role: "admin", locationId: "loc-tienda-centro", active: true, createdAt: now(), dni: "70000001", phone: "987000001" },
-  { id: "u-vend-1", name: "Luis Colaborador", role: "vendedor", locationId: "loc-tienda-centro", active: true, createdAt: now(), dni: "70000002", phone: "987000002" },
-  { id: "u-vend-2", name: "Ana Colaboradora", role: "vendedor", locationId: "loc-puesto-mall", active: true, createdAt: now(), dni: "70000003", phone: "987000003" },
-  { id: "u-vend-almacen", name: "Rosa Colaborador Almacén", role: "vendedor", roles: ["vendedor", "almacen"], locationId: "loc-almacen", active: true, createdAt: now(), dni: "70000007", phone: "987000007" },
+  { id: "u-vend-1", name: "Luis Colaborador", role: "vendedor", locationId: "loc-tienda-centro", commissionPerPair: 12, paymentWeekday: 5, active: true, createdAt: now(), dni: "70000002", phone: "987000002" },
+  { id: "u-vend-2", name: "Ana Colaboradora", role: "vendedor", locationId: "loc-puesto-mall", commissionPerPair: 10, paymentWeekday: 4, active: true, createdAt: now(), dni: "70000003", phone: "987000003" },
+  { id: "u-vend-almacen", name: "Rosa Colaborador Almacén", role: "vendedor", roles: ["vendedor", "almacen"], locationId: "loc-almacen", commissionPerPair: 11, paymentWeekday: 6, active: true, createdAt: now(), dni: "70000007", phone: "987000007" },
   { id: "u-cajero", name: "María Caja", role: "cajero", locationId: "loc-tienda-centro", active: true, createdAt: now(), dni: "70000004", phone: "987000004" },
   { id: "u-almacen", name: "Pedro Almacén", role: "almacen", locationId: "loc-almacen", active: true, createdAt: now(), dni: "70000005", phone: "987000005" },
   { id: "u-caja-2", name: "Sofia Caja", role: "cajero", locationId: "loc-tienda-centro", active: true, createdAt: now(), dni: "70000006", phone: "987000006" },
@@ -222,16 +221,124 @@ export function buildInitialInventory(): { items: InventoryItem[]; counters: Cou
 export const initialSettings: AppSettings = {
   maxDiscountSoles: 30,
   cardSurchargePct: 5,
-  commissionPerPair: 2,
   lowStockThreshold: 3,
-  paymentPolicy: "Liquidacion semanal: se descuentan todos los adelantos registrados; si superan la comision, el pago queda en S/ 0 y el saldo se descuenta luego.",
 };
 
 export const initialInventorySeed = buildInitialInventory();
+const locationName = (id: string) => initialLocations.find((location) => location.id === id)?.name || "Sin ubicacion";
+const pairUnits = (pairCode: string) => [`${pairCode}-D`, `${pairCode}-I`];
+
+const buildPairLine = (pairCode: string, finalPrice: number) => {
+  const right = initialInventorySeed.items.find((item) => item.unitCode === `${pairCode}-D`);
+  const left = initialInventorySeed.items.find((item) => item.unitCode === `${pairCode}-I`);
+  if (!right || !left) throw new Error(`No existe el par ${pairCode} en el demo`);
+  const product = initialProducts.find((entry) => entry.id === right.productId);
+  if (!product) throw new Error(`No existe el producto del par ${pairCode}`);
+
+  return {
+    productId: product.id,
+    productLabel: `${product.brand} - ${product.model}${product.size ? ` T${product.size}` : ""}`,
+    unitCode: pairCode,
+    sourceLocationId: right.locationId,
+    sourceLocationName: locationName(right.locationId),
+    sourceUnitCodes: pairUnits(pairCode),
+    sourceUnitStatuses: {
+      [`${pairCode}-D`]: "disponible",
+      [`${pairCode}-I`]: "disponible",
+    },
+    cost: product.cost,
+    basePrice: product.basePrice,
+    finalPrice,
+    discount: product.basePrice - finalPrice,
+    maxDiscountSoles: product.maxDiscountSoles,
+    utility: finalPrice - product.cost,
+    isPair: true,
+  };
+};
+
+const confirmedSaleTimestamp = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+const pendingSaleTimestamp = new Date(Date.now() - 70 * 60 * 1000).toISOString();
+
+const confirmedSaleLine = buildPairLine("A00005", 280);
+const pendingSaleLine = buildPairLine("A00006", 280);
+
+pairUnits("A00005").forEach((unitCode) => {
+  const item = initialInventorySeed.items.find((entry) => entry.unitCode === unitCode);
+  if (item) item.status = "vendido";
+});
+
+pairUnits("A00006").forEach((unitCode) => {
+  const item = initialInventorySeed.items.find((entry) => entry.unitCode === unitCode);
+  if (item) item.status = "reservado";
+});
+
+export const initialSales: Sale[] = [
+  {
+    id: "s-seed-001",
+    code: "op-0001",
+    sellerId: "u-vend-1",
+    sellerName: "Luis Colaborador",
+    sellerRole: "vendedor",
+    cashierId: "u-cajero",
+    cashierRole: "cajero",
+    customerPhone: "987111111",
+    locationId: confirmedSaleLine.sourceLocationId,
+    locationName: confirmedSaleLine.sourceLocationName,
+    lines: [confirmedSaleLine],
+    subtotal: confirmedSaleLine.finalPrice,
+    totalDiscount: Math.max(0, confirmedSaleLine.discount),
+    total: confirmedSaleLine.finalPrice,
+    utilityTotal: confirmedSaleLine.utility,
+    paymentMethod: "efectivo",
+    payments: [{ method: "efectivo", amount: confirmedSaleLine.finalPrice }],
+    paymentSplits: [{ method: "efectivo", amount: confirmedSaleLine.finalPrice }],
+    paidAmount: confirmedSaleLine.finalPrice,
+    pendingAmount: 0,
+    status: "confirmada",
+    timestamp: confirmedSaleTimestamp,
+    createdAt: confirmedSaleTimestamp,
+    confirmedAt: confirmedSaleTimestamp,
+  },
+  {
+    id: "s-seed-002",
+    code: "op-0002",
+    sellerId: "u-vend-2",
+    sellerName: "Ana Colaboradora",
+    sellerRole: "vendedor",
+    customerPhone: "987222222",
+    locationId: pendingSaleLine.sourceLocationId,
+    locationName: pendingSaleLine.sourceLocationName,
+    lines: [pendingSaleLine],
+    subtotal: pendingSaleLine.finalPrice,
+    totalDiscount: Math.max(0, pendingSaleLine.discount),
+    total: pendingSaleLine.finalPrice,
+    utilityTotal: pendingSaleLine.utility,
+    paymentMethod: "efectivo",
+    payments: [{ method: "efectivo", amount: 200 }],
+    paymentSplits: [{ method: "efectivo", amount: 200 }],
+    paidAmount: 200,
+    pendingAmount: 80,
+    status: "pendiente_cobro",
+    timestamp: pendingSaleTimestamp,
+    createdAt: pendingSaleTimestamp,
+  },
+];
+
+initialInventorySeed.movements.unshift({
+  id: "mv-seed-sale-001",
+  type: "venta",
+  unitCodes: pairUnits("A00005"),
+  fromLocationId: confirmedSaleLine.sourceLocationId,
+  byUserId: "u-vend-1",
+  byUserName: "Luis Colaborador",
+  byUserRole: "vendedor",
+  timestamp: confirmedSaleTimestamp,
+});
+
+initialInventorySeed.counters.saleSeq = 3;
+
 export const initialMovements: Movement[] = initialInventorySeed.movements;
-export const initialSales: Sale[] = [];
 export const initialAfterSales: AfterSale[] = [];
 export const initialAttendance: AttendanceRecord[] = [];
-export const initialAuthorizations: AuthorizationRequest[] = [];
 
 export { pad };

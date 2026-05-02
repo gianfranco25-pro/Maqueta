@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/AppShell";
 import { useAppStore } from "@/lib/store";
 import { StatCard } from "@/components/StatCard";
-import { fmtMoney } from "@/lib/format";
+import { fmtMoney, fmtDateTime } from "@/lib/format";
 import {
   Tabs,
   TabsList,
@@ -9,9 +9,11 @@ import {
   TabsContent,
 } from "@/components/ui/tabs";
 import { TrendingUp, Package, ClipboardCheck, AlertTriangle, ShoppingCart } from "lucide-react";
-import { fmtDateTime } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useDashboardMetrics } from "@/lib/metrics";
+
+const saleLineCode = (sale: { lines: Array<{ sourceUnitCodes?: string[]; unitCode: string }> }) =>
+  sale.lines[0]?.sourceUnitCodes?.length ? sale.lines[0].sourceUnitCodes.join(" / ") : sale.lines[0]?.unitCode || "Sin codigo";
 
 export default function Reports() {
   const m = useDashboardMetrics();
@@ -20,7 +22,6 @@ export default function Reports() {
   const attendance = useAppStore((s) => s.attendance);
   const inventory = useAppStore((s) => s.inventory);
   const aftersales = useAppStore((s) => s.afterSales);
-  const auths = useAppStore((s) => s.authorizations);
   const products = useAppStore((s) => s.products);
   const locations = useAppStore((s) => s.locations);
   const confirmedSales = sales.filter((sale) => sale.status === "confirmada");
@@ -49,57 +50,83 @@ export default function Reports() {
           <TabsTrigger value="movs">Movimientos</TabsTrigger>
           <TabsTrigger value="asist">Asistencia</TabsTrigger>
           <TabsTrigger value="cambios">Cambios</TabsTrigger>
-          <TabsTrigger value="auth">Autorizaciones</TabsTrigger>
         </TabsList>
 
         <TabsContent value="ventas" className="mt-4">
           <ListCard
             empty="Sin ventas"
-            items={sales.map((s) => {
-              const utility = s.utilityTotal ?? s.lines.reduce((acc, line) => acc + (line.utility ?? line.finalPrice - (line.cost ?? 0)), 0);
-              return { key: s.id, left: `${s.code} · ${s.sellerName}`, sub: `${fmtDateTime(s.timestamp)} · utilidad ${fmtMoney(utility)}`, right: fmtMoney(s.total), badge: s.status };
+            items={sales.map((sale) => {
+              const utility = sale.utilityTotal ?? sale.lines.reduce((acc, line) => acc + (line.utility ?? line.finalPrice - (line.cost ?? 0)), 0);
+              return {
+                key: sale.id,
+                left: `${saleLineCode(sale)} · ${sale.sellerName}`,
+                sub: `${fmtDateTime(sale.timestamp)} · utilidad ${fmtMoney(utility)}`,
+                right: fmtMoney(sale.total),
+                badge: sale.status,
+              };
             })}
           />
         </TabsContent>
+
         <TabsContent value="inventario" className="mt-4">
           <ListCard
             empty="Sin inventario"
-            items={inventory.slice(0, 100).map((i) => {
-              const p = products.find((x) => x.id === i.productId);
-              const l = locations.find((x) => x.id === i.locationId);
-              return { key: i.id, left: `${i.unitCode} · ${p?.brand} ${p?.model}`, sub: l?.name || "", right: "", badge: i.status };
+            items={inventory.slice(0, 100).map((item) => {
+              const product = products.find((entry) => entry.id === item.productId);
+              const location = locations.find((entry) => entry.id === item.locationId);
+              return {
+                key: item.id,
+                left: `${item.unitCode} · ${product?.brand} ${product?.model}`,
+                sub: location?.name || "",
+                right: "",
+                badge: item.status,
+              };
             })}
           />
         </TabsContent>
+
         <TabsContent value="movs" className="mt-4">
           <ListCard
             empty="Sin movimientos"
-            items={movements.map((mv) => ({ key: mv.id, left: `${mv.type.toUpperCase()} · ${mv.unitCodes.join(", ")}`, sub: `${mv.byUserName}${mv.receivedBy ? ` → ${mv.receivedBy}` : ""}`, right: fmtDateTime(mv.timestamp), badge: "info" as const }))}
+            items={movements.map((movement) => ({
+              key: movement.id,
+              left: `${movement.type.toUpperCase()} · ${movement.unitCodes.join(", ")}`,
+              sub: `${movement.byUserName}${movement.receivedBy ? ` -> ${movement.receivedBy}` : ""}`,
+              right: fmtDateTime(movement.timestamp),
+              badge: "info" as const,
+            }))}
           />
         </TabsContent>
+
         <TabsContent value="asist" className="mt-4">
           <ListCard
             empty="Sin asistencia"
-            items={attendance.map((a) => ({ key: a.id, left: a.userName, sub: a.locationName, right: fmtDateTime(a.timestamp), badge: "success" as const }))}
+            items={attendance.map((record) => ({
+              key: record.id,
+              left: record.userName,
+              sub: record.locationName,
+              right: fmtDateTime(record.timestamp),
+              badge: "success" as const,
+            }))}
           />
         </TabsContent>
+
         <TabsContent value="cambios" className="mt-4">
           <ListCard
             empty="Sin cambios"
-            items={aftersales.map((a) => ({ key: a.id, left: `${a.saleCode} · ${a.type}`, sub: a.reason, right: fmtDateTime(a.timestamp), badge: "info" as const }))}
-          />
-        </TabsContent>
-        <TabsContent value="auth" className="mt-4">
-          <ListCard
-            empty="Sin autorizaciones"
-            items={auths.map((a) => ({ key: a.id, left: a.detail, sub: a.requestedByName, right: fmtDateTime(a.timestamp), badge: a.status }))}
+            items={aftersales.map((record) => ({
+              key: record.id,
+              left: `${record.oldUnitCode || record.newUnitCode || "Operacion"} · ${record.type}`,
+              sub: record.reason,
+              right: fmtDateTime(record.timestamp),
+              badge: "info" as const,
+            }))}
           />
         </TabsContent>
       </Tabs>
     </>
   );
 }
-
 
 function ListCard({ items, empty }: { items: { key: string; left: string; sub?: string; right: string; badge: any }[]; empty: string }) {
   return (
@@ -108,15 +135,15 @@ function ListCard({ items, empty }: { items: { key: string; left: string; sub?: 
         <p className="p-6 text-center text-sm text-muted-foreground">{empty}</p>
       ) : (
         <ul className="divide-y">
-          {items.map((it) => (
-            <li key={it.key} className="px-4 py-3 flex items-center justify-between gap-2">
+          {items.map((item) => (
+            <li key={item.key} className="px-4 py-3 flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <p className="font-medium truncate">{it.left}</p>
-                {it.sub && <p className="text-xs text-muted-foreground truncate">{it.sub}</p>}
+                <p className="font-medium truncate">{item.left}</p>
+                {item.sub && <p className="text-xs text-muted-foreground truncate">{item.sub}</p>}
               </div>
               <div className="text-right shrink-0 flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">{it.right}</span>
-                <StatusBadge kind={it.badge} />
+                <span className="text-xs text-muted-foreground">{item.right}</span>
+                <StatusBadge kind={item.badge} />
               </div>
             </li>
           ))}

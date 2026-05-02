@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/AppShell";
 import { useAppStore, useCurrentUser } from "@/lib/store";
 import { StatCard } from "@/components/StatCard";
-import { fmtMoney, fmtDate } from "@/lib/format";
-import { Wallet, Package, TrendingUp } from "lucide-react";
-import { getUserRoles } from "@/lib/types";
+import { fmtDate, fmtMoney } from "@/lib/format";
+import { Wallet, Package, TrendingUp, CalendarDays } from "lucide-react";
+import { getUserRoles, PAYMENT_WEEKDAY_LABELS } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +20,6 @@ import { toast } from "sonner";
 export default function Commissions() {
   const sales = useAppStore((s) => s.sales);
   const users = useAppStore((s) => s.users);
-  const settings = useAppStore((s) => s.settings);
   const advances = useAppStore((s) => s.advances);
   const addAdvance = useAppStore((s) => s.addAdvance);
   const currentUser = useCurrentUser();
@@ -31,20 +30,23 @@ export default function Commissions() {
   const [reason, setReason] = useState("");
   const [paymentDate, setPaymentDate] = useState("");
 
-  const rows = sellers.map((seller) => {
+  const rows = useMemo(() => sellers.map((seller) => {
     const sellerSales = sales.filter((sale) => sale.sellerId === seller.id && sale.status === "confirmada");
     const pairs = sellerSales.reduce((acc, sale) => acc + sale.lines.filter((line) => line.isPair).length, 0);
     const totalSold = sellerSales.reduce((acc, sale) => acc + sale.total, 0);
+    const commissionPerPair = seller.commissionPerPair ?? 0;
     const commission = sellerSales.reduce(
-      (acc, sale) => acc + (sale.commissionTotal ?? sale.lines.filter((line) => line.isPair).length * settings.commissionPerPair),
+      (acc, sale) => acc + (sale.commissionTotal ?? sale.lines.filter((line) => line.isPair).length * commissionPerPair),
       0
     );
     const advanceTotal = advances
       .filter((advance) => advance.userId === seller.id)
       .reduce((acc, advance) => acc + advance.amount, 0);
+
     return {
       user: seller,
       pairs,
+      commissionPerPair,
       commission,
       advances: advanceTotal,
       netToPay: Math.max(0, commission - advanceTotal),
@@ -52,7 +54,10 @@ export default function Commissions() {
       totalSold,
       count: sellerSales.length,
     };
-  });
+  }), [advances, sales, sellers]);
+
+  const selectedSeller = sellers.find((seller) => seller.id === sellerId);
+  const selectedSellerPaymentDay = selectedSeller?.paymentWeekday ? PAYMENT_WEEKDAY_LABELS[selectedSeller.paymentWeekday] : "No definido";
 
   const totalCommission = rows.reduce((acc, row) => acc + row.commission, 0);
   const totalPairs = rows.reduce((acc, row) => acc + row.pairs, 0);
@@ -83,7 +88,7 @@ export default function Commissions() {
 
   return (
     <>
-      <PageHeader title="Comisiones y liquidaciones" subtitle="Comision por par congelada al confirmar la venta" />
+      <PageHeader title="Comisiones y adelantos" subtitle="Cada colaborador mantiene su propia comision por par y su propio dia de pago semanal" />
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
         <StatCard label="Total comisiones" value={fmtMoney(totalCommission)} icon={Wallet} tone="gold" />
@@ -105,7 +110,12 @@ export default function Commissions() {
                   </div>
                   <div className="min-w-0">
                     <p className="font-medium truncate">{row.user.name}</p>
-                    <p className="text-xs text-muted-foreground">{row.count} ventas - {row.pairs} pares - vendido {fmtMoney(row.totalSold)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {row.count} ventas - {row.pairs} pares - vendido {fmtMoney(row.totalSold)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Comision {fmtMoney(row.commissionPerPair)} por par - Pago {row.user.paymentWeekday ? PAYMENT_WEEKDAY_LABELS[row.user.paymentWeekday] : "No definido"}
+                    </p>
                     <p className="text-xs text-muted-foreground">Adelantos {fmtMoney(row.advances)}</p>
                     {row.carryover > 0 && (
                       <p className="text-xs text-critical">Saldo por descontar {fmtMoney(row.carryover)}</p>
@@ -123,8 +133,14 @@ export default function Commissions() {
 
         <div className="space-y-4">
           <div className="rounded-2xl bg-card border p-5">
-            <h2 className="font-display font-bold">Politica de pago</h2>
-            <p className="text-sm text-muted-foreground mt-1">{settings.paymentPolicy}</p>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <CalendarDays className="size-4" />
+              <p className="text-sm">Pago semanal del colaborador seleccionado</p>
+            </div>
+            <p className="font-display font-bold text-lg mt-2">{selectedSellerPaymentDay}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Comision por par: {fmtMoney(selectedSeller?.commissionPerPair ?? 0)}
+            </p>
           </div>
 
           <div className="rounded-2xl bg-card border p-5 space-y-3">
@@ -149,7 +165,7 @@ export default function Commissions() {
               <Input value={reason} onChange={(event) => setReason(event.target.value)} />
             </div>
             <div>
-              <Label>Fecha o politica de pago</Label>
+              <Label>Fecha de pago</Label>
               <Input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} />
             </div>
             <Button onClick={submitAdvance} className="w-full bg-foreground text-background hover:bg-foreground/90">
